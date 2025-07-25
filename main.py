@@ -97,7 +97,7 @@ if __name__ == "__main__":
     
     # Variables para el ángulo de la cámara y control del mouse
     angulo = [0]
-    posicion = 0
+    
     
     def display():
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -107,12 +107,12 @@ if __name__ == "__main__":
         glutSwapBuffers()
     
     def idle():
-        global posicion
+        
         
         # Procesar teclas continuamente
         procesar_teclas()
         
-        if posicion < 0:
+        if carro.posicion[0] < 0:
             luz.color_ambiente = (0.1, 0.1, 0.1, 1)
         else:
             luz.color_ambiente = (0.6, 0.6, 0.6, 1)
