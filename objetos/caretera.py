@@ -22,12 +22,19 @@ def crear_carretera_infinita():
         factor_z = z / 60  # Normalizar
         x = amplitud_curva * np.sin(factor_z) * (1 + 0.5 * np.sin(factor_z * 3))  # Curvas más cerradas
         
+        
+        derivada = amplitud_curva * np.cos(factor_z) * (1 + 0.5 * np.sin(factor_z * 3)) / 60
+        derivada += amplitud_curva * np.sin(factor_z) * 0.5 * np.cos(factor_z * 3) * 3 / 60
+        angulo_radianes = np.arctan(derivada)
+        angulo_grados = np.degrees(angulo_radianes)
+        
         # Crear segmento de carretera
         segmento = fg.Figura(
             tipo='cubo',
             posicion=(x, -0.48, z),
-            escala=(ancho_carretera, 0.02, longitud_total/num_segmentos + 1),
+            escala=(ancho_carretera, 0.02, longitud_total/num_segmentos + 1.4),
             color=(0.3, 0.3, 0.3, 1.0),  # Gris para asfalto
+            rotacion=(0, angulo_grados,0), #derivadas de las posiciones
             sombra=False
         )
         carretera_segmentos.append(segmento)
@@ -38,11 +45,17 @@ def crear_carretera_infinita():
         factor_z = z / 60
         x = amplitud_curva * np.sin(factor_z) * (1 + 0.5 * np.sin(factor_z * 3))
         
+        derivada = amplitud_curva * np.cos(factor_z) * (1 + 0.5 * np.sin(factor_z * 3)) / 60
+        derivada += amplitud_curva * np.sin(factor_z) * 0.5 * np.cos(factor_z * 3) * 3 / 60
+        angulo_radianes = np.arctan(derivada)
+        angulo_grados = np.degrees(angulo_radianes)
+        
         linea_central = fg.Figura(
             tipo='cubo',
             posicion=(x, -0.465, z),
             escala=(0.3, 0.01, 3),
             color=(1.0, 1.0, 0.0, 1.0),  # Amarillo
+            rotacion=(0, angulo_grados,0), #derivadas de las posiciones
             sombra=False
         )
         carretera_segmentos.append(linea_central)
