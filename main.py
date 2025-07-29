@@ -7,10 +7,19 @@ import figuras as fg
 glutInit()
 glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
 glutInitWindowSize(800, 600)
-glutCreateWindow(b"Cubo con hueco esferico")
+glutCreateWindow(b"Carro en Carretera Curva")
 
 from objetos.terreno import terreno
 from objetos.carro import carro
+
+def obtener_direccion_carretera(z):
+    """Obtiene la dirección de la carretera para determinar si va hacia izquierda o derecha"""
+    amplitud_curva = 50
+    factor_z = z / 60
+    # Derivada para obtener la pendiente/dirección
+    derivada = amplitud_curva * np.cos(factor_z) * (1 + 0.5 * np.sin(factor_z * 3)) / 60
+    derivada += amplitud_curva * np.sin(factor_z) * 0.5 * np.cos(factor_z * 3) * 3 / 60
+    return derivada
 
 if __name__ == "__main__":
     # Inicializar GLUT y ventana
@@ -68,7 +77,7 @@ if __name__ == "__main__":
         camera_distance = 10
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
-        gluPerspective(45, 800/600, 0.1, 100)
+        gluPerspective(45, 800/600, 0.1, 200)  # Aumentar el far plane para ver más lejos
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
         
@@ -107,15 +116,21 @@ if __name__ == "__main__":
         glutSwapBuffers()
     
     def idle():
-        
-        
         # Procesar teclas continuamente
         procesar_teclas()
         
-        if carro.posicion[0] < 0:
-            luz.color_ambiente = (0.1, 0.1, 0.1, 1)
+        # Sistema de iluminación según la dirección de la carretera
+        px, py, pz = carro.posicion
+        direccion_carretera = obtener_direccion_carretera(pz)
+        
+        if direccion_carretera > 0:
+            # Carretera va hacia la izquierda - DÍA
+            luz.color_ambiente = (0.8, 0.8, 0.7, 1)  # Luz de día (amarillo claro)
+            glClearColor(0.7, 0.9, 1.0, 1.0)  # Cielo azul de día
         else:
-            luz.color_ambiente = (0.6, 0.6, 0.6, 1)
+            # Carretera va hacia la derecha - NOCHE
+            luz.color_ambiente = (0.1, 0.1, 0.2, 1)  # Luz de noche (azul muy oscuro)
+            glClearColor(0.05, 0.05, 0.15, 1.0)  # Cielo oscuro de noche
         
         luz.habilitar()
         glutPostRedisplay()

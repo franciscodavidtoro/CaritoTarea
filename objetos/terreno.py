@@ -1,13 +1,15 @@
 import figuras as fg
 from .arboles import arboles
-from .caretera import carretera
+from .caretera import carretera_segmentos
 from .casas import casas
-from .cesped import plano
+from .cesped import planos_cesped
 from .gupoMontannas import grupoMontannas
 
 terreno = fg.Objeto3D()
-terreno.figuras.append(plano)
-terreno.figuras.append(carretera)
+# Agregar todos los planos de césped
+terreno.figuras.extend(planos_cesped)
+# Agregar todos los segmentos de la carretera infinita
+terreno.figuras.extend(carretera_segmentos)
 terreno.figuras.extend(arboles)
 
 terreno.figuras.extend(grupoMontannas)
