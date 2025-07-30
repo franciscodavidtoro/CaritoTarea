@@ -106,18 +106,153 @@ if __name__ == "__main__":
     
     # Variables para el ángulo de la cámara y control del mouse
     angulo = [0]
+    rotacion_iniciales = [0]  # Variable para la rotación de las iniciales
     
     
+    def dibujar_iniciales():
+        """Dibuja las iniciales D y F en 3D en la esquina superior izquierda"""
+        glPushMatrix()
+        
+        # Cambiar a proyección ortográfica para HUD
+        glMatrixMode(GL_PROJECTION)
+        glPushMatrix()
+        glLoadIdentity()
+        glOrtho(0, 800, 0, 600, -50, 50)  # Mayor rango de profundidad
+        
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+        
+        # Posicionar en esquina superior izquierda y hacer más grandes
+        glTranslatef(120, 500, 0)
+        glScalef(1.2, 1.2, 1.2)  # Más grandes
+        
+        # Aplicar rotación para efecto 3D
+        glRotatef(rotacion_iniciales[0], 0, 1, 0)  # Rotación en Y
+        glRotatef(15, 1, 0, 0)  # Inclinación ligera en X para efecto 3D
+        
+        # Habilitar iluminación para mejor efecto 3D
+        glEnable(GL_LIGHTING)
+        glEnable(GL_LIGHT0)
+        
+        # Configurar material para las letras
+        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, [0.8, 0.8, 0.9, 1.0])
+        glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [1.0, 1.0, 1.0, 1.0])
+        glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 50.0)
+        
+        # Dibujar letra "D" con mayor profundidad
+        glPushMatrix()
+        glTranslatef(-40, 0, 0)
+        
+        # Parte vertical izquierda de la D (columna de rectángulos)
+        for i in range(15):  # 15 rectángulos verticales
+            glPushMatrix()
+            glTranslatef(-20, -28 + i * 4, 0)
+            glScalef(4, 3, 15)
+            glutSolidCube(1)
+            glPopMatrix()
+        
+        # Parte superior horizontal de la D (línea de rectángulos)
+        for i in range(8):  # 8 rectángulos horizontales
+            glPushMatrix()
+            glTranslatef(-16 + i * 3, 28, 0)
+            glScalef(2.5, 3, 15)
+            glutSolidCube(1)
+            glPopMatrix()
+        
+        # Parte inferior horizontal de la D (línea de rectángulos)
+        for i in range(8):  # 8 rectángulos horizontales
+            glPushMatrix()
+            glTranslatef(-16 + i * 3, -28, 0)
+            glScalef(2.5, 3, 15)
+            glutSolidCube(1)
+            glPopMatrix()
+        
+        # Curva superior derecha de la D (rectángulos siguiendo una curva)
+        for i in range(12):
+            angle = i * 90.0 / 11  # De 0 a 90 grados
+            radius = 18
+            x_pos = 8 + radius * np.cos(np.radians(90 - angle))
+            y_pos = 10 + radius * np.sin(np.radians(90 - angle))
+            glPushMatrix()
+            glTranslatef(x_pos, y_pos, 0)
+            glRotatef(angle - 45, 0, 0, 1)  # Rotar para seguir la curva
+            glScalef(2.5, 3, 15)
+            glutSolidCube(1)
+            glPopMatrix()
+        
+        # Curva inferior derecha de la D (rectángulos siguiendo una curva)
+        for i in range(12):
+            angle = i * 90.0 / 11  # De 0 a 90 grados
+            radius = 18
+            x_pos = 8 + radius * np.cos(np.radians(90 - angle))
+            y_pos = -10 - radius * np.sin(np.radians(90 - angle))
+            glPushMatrix()
+            glTranslatef(x_pos, y_pos, 0)
+            glRotatef(-angle + 45, 0, 0, 1)  # Rotar para seguir la curva
+            glScalef(2.5, 3, 15)
+            glutSolidCube(1)
+            glPopMatrix()
+        
+        # Parte vertical derecha central de la D (rectángulos)
+        for i in range(5):  # 5 rectángulos verticales en el centro derecho
+            glPushMatrix()
+            glTranslatef(24, -8 + i * 4, 0)
+            glScalef(3, 2.5, 15)
+            glutSolidCube(1)
+            glPopMatrix()
+        
+        glPopMatrix()
+        
+        # Dibujar letra "F" con mayor profundidad
+        glPushMatrix()
+        glTranslatef(40, 0, 0)
+        
+        # Parte vertical izquierda de la F (más gruesa)
+        glPushMatrix()
+        glTranslatef(-20, 0, 0)
+        glScalef(8, 60, 15)  # Más profundidad (Z=15)
+        glutSolidCube(1)
+        glPopMatrix()
+        
+        # Parte superior horizontal de la F
+        glPushMatrix()
+        glTranslatef(-5, 25, 0)
+        glScalef(20, 8, 15)
+        glutSolidCube(1)
+        glPopMatrix()
+        
+        # Parte media horizontal de la F
+        glPushMatrix()
+        glTranslatef(-10, 0, 0)
+        glScalef(15, 8, 15)
+        glutSolidCube(1)
+        glPopMatrix()
+        
+        glPopMatrix()
+        
+        # Restaurar proyección
+        glMatrixMode(GL_PROJECTION)
+        glPopMatrix()
+        glMatrixMode(GL_MODELVIEW)
+        
+        glPopMatrix()
+
     def display():
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         set_camera()
         carro.dibujar()
         terreno.dibujar()
+        dibujar_iniciales()
         glutSwapBuffers()
     
     def idle():
         # Procesar teclas continuamente
         procesar_teclas()
+        
+        # Animar la rotación de las iniciales
+        rotacion_iniciales[0] += 0.5  # Velocidad de rotación
+        if rotacion_iniciales[0] >= 360:
+            rotacion_iniciales[0] = 0
         
         # Sistema de iluminación según la dirección de la carretera
         px, py, pz = carro.posicion
