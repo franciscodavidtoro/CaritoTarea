@@ -3,6 +3,7 @@ from OpenGL.GLU import *
 from OpenGL.GLUT import *
 import numpy as np
 import figuras as fg
+import interfaz as intf
 
 glutInit()
 glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
@@ -11,6 +12,9 @@ glutCreateWindow(b"Carro en Carretera Curva")
 
 from objetos.terreno import terreno
 from objetos.carro import carro
+
+# Crear interfaz de usuario
+interfaz_gui = intf.InterfazGUI(800, 600)
 
 def obtener_direccion_carretera(z):
     """Obtiene la dirección de la carretera para determinar si va hacia izquierda o derecha"""
@@ -90,9 +94,48 @@ if __name__ == "__main__":
         carro.rotacion = (0, 270 + carro_direccion, 0)
         gluLookAt(cam_x, cam_y, cam_z, px, py, pz, 0, 1, 0)
     
-    # Configurar callbacks de teclado
+    # Función para manejar clics del mouse
+    def mouse_click(button, state, x, y):
+        """Gestiona los clics del mouse en la ventana"""
+        if button == GLUT_LEFT_BUTTON and state == GLUT_DOWN:
+            # Verificar si se hizo clic en algún botón de la interfaz
+            if not interfaz_gui.procesar_click(x, y):
+                # Si hay un modo de selección activo, agregar objeto en la posición del clic
+                if interfaz_gui.modo_seleccion:
+                    print(f"\n--- Nuevo objeto ---")
+                    print(f"Clic detectado en pantalla: ({x}, {y})")
+                    
+                    # Si el clic está en la parte inferior de la pantalla (más cerca del carro)
+                    if y > 450:  # Área cercana a la interfaz del carro
+                        print("Clic muy cercano a la interfaz del carro - ajustando distancia")
+                        y = 450  # Limitar para evitar colocar objetos muy cerca o dentro del carro
+                    
+                    # Convertir coordenadas de ventana a mundo 3D con distancia apropiada
+                    camera_distance = 10  # Distancia de la cámara al carro
+                    pos_3d = intf.convertir_coord_ventana_a_3d(
+                        x, y, carro.posicion, carro_direccion, camera_distance
+                    )
+                    
+                    print(f"Posición 3D calculada: ({pos_3d[0]:.2f}, {pos_3d[1]:.2f}, {pos_3d[2]:.2f})")
+                    print(f"Posición del carro: ({carro.posicion[0]:.2f}, {carro.posicion[1]:.2f}, {carro.posicion[2]:.2f})")
+                    
+                    # Agregar el objeto según el tipo seleccionado
+                    nuevos_objetos = intf.agregar_objeto(interfaz_gui.modo_seleccion, pos_3d)
+                    
+                    # Añadir a la lista de objetos nuevos para dibujar
+                    interfaz_gui.objetos_nuevos.extend(nuevos_objetos)
+                    
+                    # Informar sobre el objeto creado
+                    print(f"Objeto tipo '{interfaz_gui.modo_seleccion}' añadido en el mundo 3D")
+                    
+                    # Mantener el modo de selección activo para seguir añadiendo objetos del mismo tipo
+                    
+                    glutPostRedisplay()
+    
+    # Configurar callbacks de teclado y mouse
     glutKeyboardFunc(keyboard_down)
     glutKeyboardUpFunc(keyboard_up)
+    glutMouseFunc(mouse_click)
     glutIgnoreKeyRepeat(1)  # Ignorar repetición automática del sistema
     
     glEnable(GL_DEPTH_TEST)
@@ -242,7 +285,16 @@ if __name__ == "__main__":
         set_camera()
         carro.dibujar()
         terreno.dibujar()
+        
+        # Dibujar objetos adicionales agregados por el usuario
+        for objeto in interfaz_gui.objetos_nuevos:
+            objeto.dibujar()
+        
         dibujar_iniciales()
+        
+        # Dibujar interfaz (botones)
+        interfaz_gui.dibujar()
+        
         glutSwapBuffers()
     
     def idle():
