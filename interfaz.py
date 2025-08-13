@@ -211,68 +211,59 @@ class InterfazGUI:
         
         return False
 
+
+
 def convertir_coord_ventana_a_3d(x, y, carro_posicion, carro_direccion, camara_distancia):
-    """
-    Método simplificado para colocar objetos exactamente donde el usuario hace clic
-    basado en un enfoque más directo de mapeo de pantalla al terreno
-    """
-    # Variables de la ventana
+    
     ancho_ventana = 800
     alto_ventana = 600
+    factor_x = 6.5
+    factor_y = 7
     
-    # Obtener posición y orientación de la cámara
     angulo_rad = np.radians(carro_direccion)
     cam_x = carro_posicion[0] - camara_distancia * np.sin(angulo_rad)
-    cam_y = carro_posicion[1] + 5  # Altura de la cámara (5 unidades sobre el carro)
+    cam_y = carro_posicion[1] + 5
     cam_z = carro_posicion[2] - camara_distancia * np.cos(angulo_rad)
     
-    # Normalizar las coordenadas de pantalla al rango [-1, 1]
-    x_pantalla = (2.0 * x / ancho_ventana) - 1.0
-    y_pantalla = 1.0 - (2.0 * y / alto_ventana)  # Invertido para coordenadas OpenGL
+    cam_pos = np.array([cam_x, cam_y, cam_z])
+    cam_objetivo = np.array(carro_posicion)
     
-    # Ajustar mapeo directo basado en la posición del clic en pantalla
-    # El mapa es dividido en regiones:
-    # - Centro: Objetos se colocan frente al carro
-    # - Lados: Objetos se colocan hacia los lados del carro
-    # - Arriba/abajo: Objetos se colocan más lejos/cerca del carro
+    # Normalizar coords pantalla [-1,1]
+    x_ndc = (2.0 * x / ancho_ventana) -1
+    y_ndc = (2.0 * y / alto_ventana) -1 
     
-    # Distancia base desde el carro (ajustada por posición vertical del clic)
-    distancia_base = 10.0  # Distancia base desde el carro
-    # Más abajo en la pantalla = más cerca, más arriba = más lejos
-    distancia = distancia_base + (y_pantalla * 15.0)
+    # Vectores cámara mundo
+    forward = cam_objetivo - cam_pos
+    forward /= np.linalg.norm(forward)
     
-    # Desplazamiento lateral basado en la posición horizontal del clic
-    # Centro = 0, izquierda = negativo, derecha = positivo
-    desplazamiento = x_pantalla * 20.0  # Factor de escala para el desplazamiento lateral
+    # El vector right se calcula basado en la orientación de la cámara
+    # que cambia cuando el carro se mueve/rota
+    world_up = np.array([0, 1, 0])
+    right = np.cross(forward, world_up)
     
-    # Calcular la dirección hacia adelante del carro (vector dirección)
-    frente_x = np.sin(angulo_rad)
-    frente_z = np.cos(angulo_rad)
+    # Verificar si forward no es paralelo al world_up
+    if np.linalg.norm(right) < 1e-6:
+        # Si forward apunta directamente hacia arriba o abajo,
+        # usar un vector alternativo para calcular rightwwww
+        alternate = np.array([1, 0, 0])
+        right = np.cross(forward, alternate)
     
-    # Calcular la dirección perpendicular (vector lateral)
-    lateral_x = -frente_z  # Perpendicular a la dirección frontal
-    lateral_z = frente_x
+    right /= np.linalg.norm(right)
+    up = np.cross(forward, right)
     
-    # Posición del objeto relativa al carro
-    objeto_x = carro_posicion[0] + (frente_x * distancia) + (lateral_x * desplazamiento)
-    objeto_z = carro_posicion[2] + (frente_z * distancia) + (lateral_z * desplazamiento)
+    # Origen desplazado por factores y clic
+    origen_rayo = cam_pos + right * (x_ndc * factor_x) + up * (y_ndc * factor_y)
     
-    # Factor de corrección adicional basado en pruebas
-    # Este factor ajusta la posición final para que coincida mejor con el clic
-    factor_correccion_x = -x_pantalla * 5.0  # Ajuste fino para X
-    factor_correccion_z = -y_pantalla * 5.0  # Ajuste fino para Z
+    # Dirección fija hacia el carro
+    ray_dir = forward
     
-    objeto_x += factor_correccion_x
-    objeto_z += factor_correccion_z
+    # Intersección con plano Y = -0.5
+    t = (-0.5 - origen_rayo[1]) / ray_dir[1]
+    punto_interseccion = origen_rayo + ray_dir * t
     
-    # Altura fija para el terreno
-    objeto_y = -0.5
-    
-    # Imprimir valores de depuración para ajuste
-    print(f"Pantalla: ({x_pantalla:.2f}, {y_pantalla:.2f})")
-    print(f"Distancia: {distancia:.2f}, Desplazamiento: {desplazamiento:.2f}")
-    
-    return (objeto_x, objeto_y, objeto_z)
+    return tuple(punto_interseccion)
+
+
 
 def agregar_objeto(tipo, posicion):
     """
