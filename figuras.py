@@ -6,8 +6,8 @@ import numpy as np
 
 from PIL import Image
 
-def cargarTextura(paht):
-    img = Image.open(paht)
+def cargarTextura(path):
+    img = Image.open(path)
     img = img.transpose(Image.FLIP_TOP_BOTTOM)
     img_data = np.array(img.convert("RGBA"), dtype=np.uint8)
 

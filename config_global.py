@@ -4,8 +4,8 @@ Variables compartidas para evitar importaciones circulares
 """
 
 # Variables de ventana y pantalla
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 600
+WINDOW_WIDTH = 1000
+WINDOW_HEIGHT = 800
 ASPECT_RATIO = WINDOW_WIDTH / WINDOW_HEIGHT
 
 # Variables de interfaz adaptable

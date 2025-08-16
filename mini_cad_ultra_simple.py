@@ -13,6 +13,7 @@ from sistema_seleccion import SistemaSeleccion
 # Importar funciones de creación de objetos
 from objetos.arboles import crear_arbol
 from objetos.casas import crear_casa
+from objetos.cesped import inicializar_cesped
 
 # Función para crear montaña (basada en gupoMontannas.py)
 def crear_montana(pos_x, pos_z):
@@ -54,6 +55,9 @@ glutCreateWindow(b"Mini CAD Adaptable - Seleccionar y Mover")
 # Inicializar sistemas
 interfaz = InterfazAdaptable()
 sistema_seleccion = SistemaSeleccion()
+
+# Variable global para el césped (se inicializará después de OpenGL)
+planos_cesped = []
 
 # Variables globales
 objetos = []
@@ -186,17 +190,24 @@ class Objeto:
             self.figuras = crear_luz(posicion[0], posicion[2])
     
     def dibujar(self):
-        # Si está seleccionado, dibujar wireframe de selección
+        # Primero dibujar todas las figuras del objeto
+        for figura in self.figuras:
+            figura.dibujar()
+        
+        # Si está seleccionado, dibujar wireframe de selección DESPUÉS
         if self.seleccionado:
+            # Guardar estado actual
+            glPushAttrib(GL_CURRENT_BIT | GL_LIGHTING_BIT | GL_LINE_BIT)
+            
             glPushMatrix()
             glTranslatef(*self.posicion)
+            
+            # Desactivar iluminación solo para el wireframe
+            glDisable(GL_LIGHTING)
             
             # Color amarillo brillante para selección
             glColor4f(1, 1, 0, 1)  # Amarillo
             glLineWidth(4)
-            
-            # Dibujar múltiples wireframes para efecto más visible
-            glDisable(GL_LIGHTING)  # Desactivar iluminación para wireframe
             
             # Wireframe exterior
             glutWireCube(4.0)
@@ -205,13 +216,10 @@ class Objeto:
             glColor4f(1, 0.8, 0, 0.8)  # Amarillo-naranja semi-transparente
             glutWireCube(3.0)
             
-            glLineWidth(1)
-            glEnable(GL_LIGHTING)  # Reactivar iluminación
             glPopMatrix()
-        
-        # Dibujar todas las figuras del objeto
-        for figura in self.figuras:
-            figura.dibujar()
+            
+            # Restaurar estado
+            glPopAttrib()
 
 def configurar_luces():
     """Configura la iluminación básica"""
@@ -241,13 +249,9 @@ def configurar_luces():
             light_num += 1
 
 def dibujar_terreno():
-    """Dibuja un terreno verde adaptable"""
-    glPushMatrix()
-    glTranslatef(0, -0.5, 0)
-    glScalef(cfg.TERRAIN_SIZE, 0.1, cfg.TERRAIN_SIZE)
-    glColor3f(*cfg.COLOR_TERRAIN)
-    glutSolidCube(1)
-    glPopMatrix()
+    """Dibuja el terreno usando los planos de césped con textura"""
+    for plano in planos_cesped:
+        plano.dibujar()
 
 def set_camera():
     """Configura la cámara con movimiento WASD y rotación QE usando interfaz adaptable"""
@@ -750,11 +754,16 @@ def seleccionar_objeto(objeto):
 
 def main():
     """Función principal"""
+    global planos_cesped
+    
     # Configurar OpenGL
     glEnable(GL_DEPTH_TEST)
     glClearColor(*cfg.COLOR_SKY)
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    
+    # Inicializar el césped después de configurar OpenGL
+    planos_cesped = inicializar_cesped()
     
     # Configurar callbacks
     glutMouseFunc(mouse_click)

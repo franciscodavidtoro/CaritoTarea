@@ -30,10 +30,15 @@ def crear_cesped_infinito():
     
     return planos_cesped
 
-# Crear los planos de césped
-planos_cesped = crear_cesped_infinito()
+# Variables globales para los planos de césped (se inicializarán después)
+planos_cesped = []
+plano = None
 
-# Para compatibilidad, mantener la referencia original al primer plano
-plano = planos_cesped[0] if planos_cesped else None
+def inicializar_cesped():
+    """Inicializa el césped después de que OpenGL esté listo"""
+    global planos_cesped, plano
+    planos_cesped = crear_cesped_infinito()
+    plano = planos_cesped[0] if planos_cesped else None
+    return planos_cesped
 
 
