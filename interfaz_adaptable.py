@@ -19,13 +19,15 @@ class InterfazAdaptable:
         cfg.aspect_ratio = ancho / alto
         
         # Recalcular tamaños de botones
-        self.button_width = (ancho - (cfg.BUTTON_COUNT + 1) * cfg.BUTTON_MARGIN) // cfg.BUTTON_COUNT
+        # Ajustar el número de botones para incluir el nuevo botón 'Fractal'
+        self.button_count = cfg.BUTTON_COUNT + 1  # Se suma uno para el botón fractal
+        self.button_width = (ancho - (self.button_count + 1) * cfg.BUTTON_MARGIN) // self.button_count
         self.button_height = cfg.BUTTON_HEIGHT
         self.button_y = cfg.BUTTON_MARGIN
-        
+
         # Posiciones de botones
         self.button_positions = []
-        for i in range(cfg.BUTTON_COUNT):
+        for i in range(self.button_count):
             x = cfg.BUTTON_MARGIN + i * (self.button_width + cfg.BUTTON_MARGIN)
             self.button_positions.append((x, self.button_y))
     
@@ -72,30 +74,23 @@ class Boton:
         self.modo = modo
         self.color = color
         self.activo = False
-    
+
     def actualizar_posicion(self, x, y, ancho, alto):
-        """Actualiza la posición y tamaño del botón"""
         self.x = x
         self.y = y
         self.ancho = ancho
         self.alto = alto
-    
+
     def contiene_punto(self, x, y):
-        return (self.x <= x <= self.x + self.ancho and 
-                self.y <= y <= self.y + self.alto)
-    
+        return (self.x <= x <= self.x + self.ancho and self.y <= y <= self.y + self.alto)
+
     def dibujar(self, interfaz):
-        """Dibuja el botón usando la interfaz adaptable"""
         interfaz.configurar_proyeccion_2d()
-        
         # Color del botón
         if self.activo:
-            glColor3f(min(1.0, self.color[0] + 0.3), 
-                     min(1.0, self.color[1] + 0.3), 
-                     min(1.0, self.color[2] + 0.3))
+            glColor3f(min(1.0, self.color[0] + 0.3), min(1.0, self.color[1] + 0.3), min(1.0, self.color[2] + 0.3))
         else:
             glColor3f(*self.color)
-        
         # Dibujar fondo del botón
         glBegin(GL_QUADS)
         glVertex2f(self.x, self.y)
@@ -103,7 +98,6 @@ class Boton:
         glVertex2f(self.x + self.ancho, self.y + self.alto)
         glVertex2f(self.x, self.y + self.alto)
         glEnd()
-        
         # Borde del botón
         glColor3f(0, 0, 0)
         glLineWidth(2)
@@ -114,20 +108,36 @@ class Boton:
         glVertex2f(self.x, self.y + self.alto)
         glEnd()
         glLineWidth(1)
-        
         # Texto del botón (centrado)
         glColor3f(1, 1, 1)
         texto_x = self.x + 10
         texto_y = self.y + self.alto // 2 + 5
         glRasterPos2f(texto_x, texto_y)
-        
-        # Ajustar tamaño de fuente según el tamaño del botón
         fuente = GLUT.GLUT_BITMAP_HELVETICA_10 if self.ancho < 100 else GLUT.GLUT_BITMAP_HELVETICA_12
-        
         for char in self.texto:
             glutBitmapCharacter(fuente, ord(char))
-        
         interfaz.restaurar_proyeccion_3d()
+
+# --- Agregar función para crear los botones incluyendo el de fractal ---
+def crear_botones(interfaz):
+    colores = [
+        (0.2, 0.6, 0.9),  # Navegación
+        (0.2, 0.8, 0.3),  # Árbol
+        (0.8, 0.6, 0.2),  # Casa
+        (0.5, 0.5, 0.5),  # Montaña
+        (1.0, 1.0, 0.2),  # Luz
+        (1.0, 0.2, 0.2),  # Seleccionar
+        (0.6, 0.2, 0.8),  # Fractal
+    ]
+    textos = [
+        "Navegación", "Árbol", "Casa", "Montaña", "Luz", "Seleccionar", "Fractal"
+    ]
+    modos = cfg.MODOS
+    botones = []
+    for i, (pos, color, texto, modo) in enumerate(zip(interfaz.button_positions, colores, textos, modos)):
+        boton = Boton(pos[0], pos[1], interfaz.button_width, interfaz.button_height, texto, modo, color)
+        botones.append(boton)
+    return botones
 
 def callback_redimensionar(ancho, alto):
     """Callback para cuando se redimensiona la ventana"""

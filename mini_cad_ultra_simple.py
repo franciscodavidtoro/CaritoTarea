@@ -210,15 +210,15 @@ def crear_botones(interfaz):
         ("⛰️ MONTANA", "montana", [0.5, 0.5, 0.8]),
         ("💡 LUZ", "luz", [0.9, 0.9, 0.2]),
         ("👆 SELECT", "seleccionar", [0.8, 0.2, 0.8]),
-        ("🖼️ TEXTURA", "cambiar_textura", [0.2, 0.6, 0.9])
+        ("🖼️ TEXTURA", "cambiar_textura", [0.2, 0.6, 0.9]),
+        ("🌀 FRACTAL", "fractal", [0.6, 0.2, 0.8])
     ]
-    
+
     botones = []
     for i, (texto, modo, color) in enumerate(botones_info):
         x, y = interfaz.button_positions[i]
         boton = Boton(x, y, interfaz.button_width, interfaz.button_height, texto, modo, color)
         botones.append(boton)
-    
     return botones
 
 # Inicializar botones
@@ -525,16 +525,70 @@ def agregar_objeto(tipo, posicion):
         y = 0  # En el suelo
     elif tipo == "luz":
         y = 0  # En el suelo también
-    
-    nuevo_objeto = Objeto(
-        tipo=tipo,
-        posicion=(x, y, z),
-        color=color_actual.copy(),
-        nombre=nombre
-    )
-    
+    elif tipo == "fractal":
+        y = 0
+
+    if tipo == "fractal":
+        nuevo_objeto = crear_fractal((x, y, z), color_actual.copy(), nombre)
+    else:
+        nuevo_objeto = Objeto(
+            tipo=tipo,
+            posicion=(x, y, z),
+            color=color_actual.copy(),
+            nombre=nombre
+        )
+
     objetos.append(nuevo_objeto)
     print(f"Agregado: {nombre} en ({x:.1f}, {y:.1f}, {z:.1f})")
+
+# --- Fractal simple ---
+def crear_fractal(posicion, color, nombre, profundidad=3, escala=1.0):
+    """Crea un fractal tipo árbol de cubos (Sierpinski 3D simplificado)"""
+    class Fractal:
+        def __init__(self, posicion, color, nombre, profundidad, escala):
+            self.tipo = "fractal"
+            self.posicion = list(posicion)
+            self.color = color
+            self.nombre = nombre
+            self.seleccionado = False
+            self.figuras = []
+            self._crear_fractal(self.posicion, profundidad, escala)
+
+        def _crear_fractal(self, pos, profundidad, escala):
+            if profundidad == 0:
+                self.figuras.append(fg.Figura(
+                    tipo='cubo',
+                    posicion=pos,
+                    escala=(escala, escala, escala),
+                    color=self.color
+                ))
+            else:
+                for dx in [-escala, escala]:
+                    for dz in [-escala, escala]:
+                        nueva_pos = (pos[0]+dx, pos[1]+escala, pos[2]+dz)
+                        self._crear_fractal(nueva_pos, profundidad-1, escala/2)
+                self.figuras.append(fg.Figura(
+                    tipo='cubo',
+                    posicion=pos,
+                    escala=(escala, escala, escala),
+                    color=self.color
+                ))
+
+        def dibujar(self):
+            for figura in self.figuras:
+                figura.dibujar()
+            if self.seleccionado:
+                glPushAttrib(GL_CURRENT_BIT | GL_LIGHTING_BIT | GL_LINE_BIT)
+                glPushMatrix()
+                glTranslatef(*self.posicion)
+                glDisable(GL_LIGHTING)
+                glColor4f(1, 1, 0, 1)
+                glLineWidth(4)
+                glutWireCube(4.0)
+                glPopMatrix()
+                glPopAttrib()
+
+    return Fractal(posicion, color, nombre, profundidad, escala)
 
 def dibujar_info():
     """Dibuja información en pantalla"""
