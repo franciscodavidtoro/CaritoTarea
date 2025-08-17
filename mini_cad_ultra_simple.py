@@ -4,6 +4,9 @@ from OpenGL.GLUT import *
 import OpenGL.GLUT as GLUT
 import numpy as np
 import figuras as fg
+import tkinter as tk
+from tkinter import filedialog
+import os
 
 # Importar módulos del sistema
 import config_global as cfg
@@ -45,6 +48,59 @@ def crear_luz(pos_x, pos_z):
         argumentos=0.3
     )
     return [poste, lampara]
+
+# Función para cambiar textura del césped
+def cambiar_textura_cesped():
+    """Abre un diálogo para seleccionar una nueva textura para el césped"""
+    global planos_cesped
+    
+    # Crear ventana raíz temporal de tkinter (se oculta)
+    root = tk.Tk()
+    root.withdraw()  # Ocultar ventana principal de tkinter
+    
+    # Tipos de archivo permitidos
+    tipos_archivo = [
+        ('Imágenes', '*.jpg *.jpeg *.png *.bmp *.tga *.gif'),
+        ('JPEG', '*.jpg *.jpeg'),
+        ('PNG', '*.png'),
+        ('BMP', '*.bmp'),
+        ('Todos los archivos', '*.*')
+    ]
+    
+    try:
+        # Abrir diálogo de selección de archivo
+        ruta_archivo = filedialog.askopenfilename(
+            title="Seleccionar textura para el césped",
+            filetypes=tipos_archivo,
+            initialdir=os.path.join(os.path.dirname(__file__), "objetos")
+        )
+        
+        if ruta_archivo:  # Si el usuario seleccionó un archivo
+            print(f"Nueva textura seleccionada: {ruta_archivo}")
+            
+            # Actualizar la textura en cesped.py
+            from objetos.cesped import cambiar_textura_cesped_global
+            
+            # Cambiar la textura del césped
+            resultado = cambiar_textura_cesped_global(ruta_archivo)
+            
+            if resultado:
+                # Reinicializar los planos de césped con la nueva textura
+                planos_cesped = inicializar_cesped()
+                print(f"Textura del césped cambiada exitosamente a: {os.path.basename(ruta_archivo)}")
+                
+                # Forzar redibujado
+                glutPostRedisplay()
+            else:
+                print("Error al cargar la nueva textura")
+        else:
+            print("No se seleccionó ningún archivo")
+            
+    except Exception as e:
+        print(f"Error al cambiar textura: {e}")
+    finally:
+        # Destruir ventana de tkinter
+        root.destroy()
 
 # Inicializar GLUT
 glutInit()
@@ -153,7 +209,8 @@ def crear_botones(interfaz):
         ("🏠 CASA", "casa", [0.8, 0.6, 0.3]),
         ("⛰️ MONTANA", "montana", [0.5, 0.5, 0.8]),
         ("💡 LUZ", "luz", [0.9, 0.9, 0.2]),
-        ("👆 SELECT", "seleccionar", [0.8, 0.2, 0.8])
+        ("👆 SELECT", "seleccionar", [0.8, 0.2, 0.8]),
+        ("🖼️ TEXTURA", "cambiar_textura", [0.2, 0.6, 0.9])
     ]
     
     botones = []
@@ -293,6 +350,12 @@ def mouse_click(button, state, x, y):
                     # Si cambiamos a modo seleccionar, deseleccionar todo
                     if modo_actual == "seleccionar":
                         sistema_seleccion.deseleccionar_todos(objetos)
+                    # Si cambiamos a modo cambiar textura, abrir diálogo
+                    elif modo_actual == "cambiar_textura":
+                        cambiar_textura_cesped()
+                        # Volver a modo navegación después de cambiar textura
+                        modo_actual = "navegacion"
+                        boton.activo = False
                     
                     boton_clickeado = True
                     break
@@ -316,8 +379,8 @@ def mouse_click(button, state, x, y):
                         # No hay objeto bajo cursor, deseleccionar
                         sistema_seleccion.deseleccionar_todos(objetos)
                         
-                elif modo_actual != "navegacion":
-                    # Modo agregar objeto
+                elif modo_actual != "navegacion" and modo_actual != "cambiar_textura":
+                    # Modo agregar objeto (excluir cambiar_textura)
                     agregar_objeto(modo_actual, pos_3d)
         
         elif state == GLUT_UP:
@@ -336,8 +399,8 @@ def mouse_motion(x, y):
         # Actualizar arrastre
         sistema_seleccion.actualizar_arrastre(pos_3d)
         glutPostRedisplay()
-    elif modo_actual != "navegacion" and modo_actual != "seleccionar":
-        # Vista previa para agregar objetos
+    elif modo_actual != "navegacion" and modo_actual != "seleccionar" and modo_actual != "cambiar_textura":
+        # Vista previa para agregar objetos (excluir cambiar_textura)
         mouse_pos_3d = pos_3d
         glutPostRedisplay()
     elif modo_actual == "seleccionar":
@@ -540,7 +603,7 @@ def dibujar_info():
 
 def dibujar_vista_previa():
     """Dibuja una vista previa del objeto que se va a colocar"""
-    if modo_actual != "navegacion":
+    if modo_actual != "navegacion" and modo_actual != "seleccionar" and modo_actual != "cambiar_textura":
         glPushMatrix()
         glTranslatef(*mouse_pos_3d)
         
@@ -794,6 +857,7 @@ def main():
     print("- ⛰️ Montaña")
     print("- 💡 Luz (ilumina la escena)")
     print("- 👆 Seleccionar y mover objetos")
+    print("- 🖼️ Cambiar textura del césped")
     print()
     print("¡Diviértete construyendo tu mundo! 🌟")
     
