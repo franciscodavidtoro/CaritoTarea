@@ -19,8 +19,8 @@ class InterfazAdaptable:
         cfg.aspect_ratio = ancho / alto
         
         # Recalcular tamaños de botones
-        # Ajustar el número de botones para incluir el nuevo botón 'Fractal'
-        self.button_count = cfg.BUTTON_COUNT + 1  # Se suma uno para el botón fractal
+        # Ajustar el número de botones para incluir los nuevos botones 'Koch' y 'Sierpinski'
+        self.button_count = 9  # Total de botones ahora
         self.button_width = (ancho - (self.button_count + 1) * cfg.BUTTON_MARGIN) // self.button_count
         self.button_height = cfg.BUTTON_HEIGHT
         self.button_y = cfg.BUTTON_MARGIN
@@ -128,9 +128,11 @@ def crear_botones(interfaz):
         (1.0, 1.0, 0.2),  # Luz
         (1.0, 0.2, 0.2),  # Seleccionar
         (0.6, 0.2, 0.8),  # Fractal
+        (0.8, 0.4, 0.6),  # Koch
+        (0.4, 0.8, 0.6),  # Sierpinski
     ]
     textos = [
-        "Navegación", "Árbol", "Casa", "Montaña", "Luz", "Seleccionar", "Fractal"
+        "Navegación", "Árbol", "Casa", "Montaña", "Luz", "Seleccionar", "Fractal", "Koch", "Sierpinski"
     ]
     modos = cfg.MODOS
     botones = []

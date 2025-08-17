@@ -211,14 +211,17 @@ def crear_botones(interfaz):
         ("💡 LUZ", "luz", [0.9, 0.9, 0.2]),
         ("👆 SELECT", "seleccionar", [0.8, 0.2, 0.8]),
         ("🖼️ TEXTURA", "cambiar_textura", [0.2, 0.6, 0.9]),
-        ("🌀 FRACTAL", "fractal", [0.6, 0.2, 0.8])
+        ("🌀 FRACTAL", "fractal", [0.6, 0.2, 0.8]),
+        ("❄️ KOCH", "koch", [0.8, 0.4, 0.6]),
+        ("🔺 SIERP", "sierpinski", [0.4, 0.8, 0.6])
     ]
 
     botones = []
     for i, (texto, modo, color) in enumerate(botones_info):
-        x, y = interfaz.button_positions[i]
-        boton = Boton(x, y, interfaz.button_width, interfaz.button_height, texto, modo, color)
-        botones.append(boton)
+        if i < len(interfaz.button_positions):
+            x, y = interfaz.button_positions[i]
+            boton = Boton(x, y, interfaz.button_width, interfaz.button_height, texto, modo, color)
+            botones.append(boton)
     return botones
 
 # Inicializar botones
@@ -525,11 +528,15 @@ def agregar_objeto(tipo, posicion):
         y = 0  # En el suelo
     elif tipo == "luz":
         y = 0  # En el suelo también
-    elif tipo == "fractal":
+    elif tipo in ["fractal", "koch", "sierpinski"]:
         y = 0
 
     if tipo == "fractal":
         nuevo_objeto = crear_fractal((x, y, z), color_actual.copy(), nombre)
+    elif tipo == "koch":
+        nuevo_objeto = crear_koch((x, y, z), color_actual.copy(), nombre)
+    elif tipo == "sierpinski":
+        nuevo_objeto = crear_sierpinski((x, y, z), color_actual.copy(), nombre)
     else:
         nuevo_objeto = Objeto(
             tipo=tipo,
@@ -589,6 +596,308 @@ def crear_fractal(posicion, color, nombre, profundidad=3, escala=1.0):
                 glPopAttrib()
 
     return Fractal(posicion, color, nombre, profundidad, escala)
+
+# --- Fractal de Koch 3D ---
+def crear_koch(posicion, color, nombre, iteraciones=3):
+    """Crea una curva de Koch en 3D"""
+    class FractalKoch:
+        def __init__(self, posicion, color, nombre, iteraciones):
+            self.tipo = "koch"
+            self.posicion = list(posicion)
+            self.color = color
+            self.nombre = nombre
+            self.seleccionado = False
+            self.figuras = []
+            self._crear_koch_3d(iteraciones)
+
+        def _crear_koch_3d(self, iteraciones):
+            """Crea una estructura 3D basada en la curva de Koch"""
+            import math
+            
+            # Puntos iniciales para formar un triángulo base
+            puntos = [
+                (self.posicion[0] - 2, self.posicion[1], self.posicion[2] - 1),
+                (self.posicion[0] + 2, self.posicion[1], self.posicion[2] - 1),
+                (self.posicion[0], self.posicion[1], self.posicion[2] + 1.7)
+            ]
+            
+            # Generar curva de Koch para cada lado del triángulo
+            for i in range(3):
+                p1 = puntos[i]
+                p2 = puntos[(i + 1) % 3]
+                puntos_koch = self._generar_curva_koch(p1, p2, iteraciones)
+                
+                # Crear cubos pequeños en cada punto de la curva
+                for j in range(len(puntos_koch) - 1):
+                    punto = puntos_koch[j]
+                    # Crear un cubo pequeño en cada punto
+                    cubo = fg.Figura(
+                        tipo='cubo',
+                        posicion=punto,
+                        escala=(0.1, 0.1, 0.1),
+                        color=self.color
+                    )
+                    self.figuras.append(cubo)
+                    
+                    # Crear línea entre puntos consecutivos usando cilindros muy delgados
+                    if j < len(puntos_koch) - 1:
+                        punto_siguiente = puntos_koch[j + 1]
+                        punto_medio = (
+                            (punto[0] + punto_siguiente[0]) / 2,
+                            (punto[1] + punto_siguiente[1]) / 2,
+                            (punto[2] + punto_siguiente[2]) / 2
+                        )
+                        # Calcular distancia para escalar el cilindro
+                        dx = punto_siguiente[0] - punto[0]
+                        dy = punto_siguiente[1] - punto[1] 
+                        dz = punto_siguiente[2] - punto[2]
+                        longitud = math.sqrt(dx*dx + dy*dy + dz*dz)
+                        
+                        # Crear cilindro como línea
+                        linea = fg.Figura(
+                            tipo='cubo',
+                            posicion=punto_medio,
+                            escala=(longitud, 0.05, 0.05),
+                            color=self.color
+                        )
+                        self.figuras.append(linea)
+
+        def _generar_curva_koch(self, p1, p2, iteraciones):
+            """Genera puntos de la curva de Koch entre dos puntos"""
+            import math
+            
+            if iteraciones == 0:
+                return [p1, p2]
+            
+            # Calcular los puntos de la curva de Koch
+            puntos = [p1]
+            
+            # Vector del segmento
+            dx = p2[0] - p1[0]
+            dy = p2[1] - p1[1]
+            dz = p2[2] - p1[2]
+            
+            # Dividir en tercios
+            p_a = (p1[0] + dx/3, p1[1] + dy/3, p1[2] + dz/3)
+            p_b = (p1[0] + 2*dx/3, p1[1] + 2*dy/3, p1[2] + 2*dz/3)
+            
+            # Punto del pico (triángulo equilátero)
+            # Vector perpendicular en el plano XZ
+            perp_x = -dz/3
+            perp_z = dx/3
+            altura = math.sqrt(3)/6 * math.sqrt(dx*dx + dz*dz)
+            
+            p_pico = (
+                (p_a[0] + p_b[0])/2 + perp_x,
+                p1[1] + altura,  # Elevar el pico
+                (p_a[2] + p_b[2])/2 + perp_z
+            )
+            
+            # Recursión para cada segmento
+            if iteraciones > 1:
+                puntos.extend(self._generar_curva_koch(p1, p_a, iteraciones-1)[1:])
+                puntos.extend(self._generar_curva_koch(p_a, p_pico, iteraciones-1)[1:])
+                puntos.extend(self._generar_curva_koch(p_pico, p_b, iteraciones-1)[1:])
+                puntos.extend(self._generar_curva_koch(p_b, p2, iteraciones-1)[1:])
+            else:
+                puntos.extend([p_a, p_pico, p_b, p2])
+            
+            return puntos
+
+        def dibujar(self):
+            for figura in self.figuras:
+                figura.dibujar()
+            if self.seleccionado:
+                glPushAttrib(GL_CURRENT_BIT | GL_LIGHTING_BIT | GL_LINE_BIT)
+                glPushMatrix()
+                glTranslatef(*self.posicion)
+                glDisable(GL_LIGHTING)
+                glColor4f(1, 1, 0, 1)
+                glLineWidth(4)
+                glutWireCube(6.0)
+                glPopMatrix()
+                glPopAttrib()
+
+    return FractalKoch(posicion, color, nombre, iteraciones)
+
+# --- Triángulo de Sierpinski 3D ---
+def crear_sierpinski(posicion, color, nombre, iteraciones=4):
+    """Crea un triángulo de Sierpinski en 3D detallado como pirámide fractal"""
+    class FractalSierpinski:
+        def __init__(self, posicion, color, nombre, iteraciones):
+            self.tipo = "sierpinski"
+            self.posicion = list(posicion)
+            self.color = color
+            self.nombre = nombre
+            self.seleccionado = False
+            self.figuras = []
+            self._crear_sierpinski_tetraedro(iteraciones)
+
+        def _crear_sierpinski_tetraedro(self, iteraciones):
+            """Crea un tetraedro de Sierpinski con espacios bien definidos"""
+            import math
+            
+            # Tamaño inicial más grande para mejor visualización
+            tamaño_inicial = 6.0
+            altura = tamaño_inicial * math.sqrt(2/3)  # Altura de tetraedro regular
+            
+            # Vértices de un tetraedro regular centrado en la posición
+            vertices = [
+                # Vértice superior
+                (self.posicion[0], self.posicion[1] + altura * 0.75, self.posicion[2]),
+                
+                # Base triangular
+                (self.posicion[0] - tamaño_inicial/2, self.posicion[1] - altura * 0.25, self.posicion[2] + tamaño_inicial/(2*math.sqrt(3))),
+                (self.posicion[0] + tamaño_inicial/2, self.posicion[1] - altura * 0.25, self.posicion[2] + tamaño_inicial/(2*math.sqrt(3))),
+                (self.posicion[0], self.posicion[1] - altura * 0.25, self.posicion[2] - tamaño_inicial/math.sqrt(3))
+            ]
+            
+            # Generar el fractal recursivamente
+            self._generar_tetraedro_recursivo(vertices, iteraciones, tamaño_inicial)
+
+        def _generar_tetraedro_recursivo(self, vertices, nivel, tamaño):
+            """Genera recursivamente el tetraedro de Sierpinski"""
+            if nivel == 0:
+                # Crear tetraedro sólido usando múltiples triángulos
+                self._crear_tetraedro_solido(vertices, tamaño)
+                return
+            
+            # Crear 4 tetraedros más pequeños en cada vértice
+            nuevo_tamaño = tamaño / 2
+            
+            for i in range(4):
+                # Para cada vértice, crear un tetraedro más pequeño
+                nuevo_centro = vertices[i]
+                
+                # Calcular los otros 3 vértices del tetraedro pequeño
+                # Cada vértice del tetraedro pequeño está en el punto medio de una arista
+                nuevos_vertices = [nuevo_centro]
+                
+                for j in range(4):
+                    if i != j:
+                        # Punto medio entre vértice i y vértice j
+                        punto_medio = (
+                            (vertices[i][0] + vertices[j][0]) / 2,
+                            (vertices[i][1] + vertices[j][1]) / 2,
+                            (vertices[i][2] + vertices[j][2]) / 2
+                        )
+                        nuevos_vertices.append(punto_medio)
+                
+                # Recursión con los 4 nuevos vértices
+                self._generar_tetraedro_recursivo(nuevos_vertices, nivel - 1, nuevo_tamaño)
+
+        def _crear_tetraedro_solido(self, vertices, tamaño):
+            """Crea un tetraedro sólido usando figuras geométricas"""
+            # Calcular centro del tetraedro
+            centro = (
+                sum(v[0] for v in vertices) / 4,
+                sum(v[1] for v in vertices) / 4,
+                sum(v[2] for v in vertices) / 4
+            )
+            
+            # Crear el cuerpo principal del tetraedro
+            cubo_central = fg.Figura(
+                tipo='cubo',
+                posicion=centro,
+                escala=(tamaño/4, tamaño/4, tamaño/4),
+                color=self.color
+            )
+            self.figuras.append(cubo_central)
+            
+            # Crear vértices del tetraedro
+            for i, vertice in enumerate(vertices):
+                cubo_vertice = fg.Figura(
+                    tipo='cubo',
+                    posicion=vertice,
+                    escala=(tamaño/8, tamaño/8, tamaño/8),
+                    color=self.color
+                )
+                self.figuras.append(cubo_vertice)
+            
+            # Crear aristas del tetraedro
+            for i in range(4):
+                for j in range(i + 1, 4):
+                    # Crear pequeños cubos a lo largo de cada arista
+                    p1 = vertices[i]
+                    p2 = vertices[j]
+                    
+                    # Crear 3 cubos intermedios en cada arista para mejor definición
+                    for t in [0.25, 0.5, 0.75]:
+                        punto_arista = (
+                            p1[0] + t * (p2[0] - p1[0]),
+                            p1[1] + t * (p2[1] - p1[1]),
+                            p1[2] + t * (p2[2] - p1[2])
+                        )
+                        cubo_arista = fg.Figura(
+                            tipo='cubo',
+                            posicion=punto_arista,
+                            escala=(tamaño/12, tamaño/12, tamaño/12),
+                            color=self.color
+                        )
+                        self.figuras.append(cubo_arista)
+            
+            # Crear caras del tetraedro (opcional, para mayor densidad visual)
+            if tamaño > 1.0:  # Solo para tetraedros más grandes
+                # Crear puntos en el centro de cada cara triangular
+                caras = [
+                    [0, 1, 2],  # Cara base
+                    [0, 1, 3],  # Cara lateral 1
+                    [0, 2, 3],  # Cara lateral 2
+                    [1, 2, 3]   # Cara lateral 3
+                ]
+                
+                for cara in caras:
+                    centro_cara = (
+                        (vertices[cara[0]][0] + vertices[cara[1]][0] + vertices[cara[2]][0]) / 3,
+                        (vertices[cara[0]][1] + vertices[cara[1]][1] + vertices[cara[2]][1]) / 3,
+                        (vertices[cara[0]][2] + vertices[cara[1]][2] + vertices[cara[2]][2]) / 3
+                    )
+                    cubo_cara = fg.Figura(
+                        tipo='cubo',
+                        posicion=centro_cara,
+                        escala=(tamaño/15, tamaño/15, tamaño/15),
+                        color=self.color
+                    )
+                    self.figuras.append(cubo_cara)
+
+        def dibujar(self):
+            # Aplicar un efecto de gradiente de color basado en la altura y nivel
+            for i, figura in enumerate(self.figuras):
+                # Modificar ligeramente el color basado en la posición Y para dar profundidad
+                altura_rel = (figura.posicion[1] - self.posicion[1] + 3) / 6
+                altura_rel = max(0, min(1, altura_rel))
+                
+                # Crear gradiente más pronunciado para mejor contraste
+                factor_gradiente = 0.4
+                color_modificado = (
+                    self.color[0] + altura_rel * factor_gradiente,
+                    self.color[1] + altura_rel * factor_gradiente * 0.8,
+                    self.color[2] + altura_rel * factor_gradiente * 0.6,
+                    self.color[3]
+                )
+                
+                # Asegurar que los valores estén entre 0 y 1
+                color_modificado = tuple(max(0, min(1, c)) for c in color_modificado)
+                
+                # Aplicar el color modificado temporalmente
+                color_original = figura.color
+                figura.color = color_modificado
+                figura.dibujar()
+                figura.color = color_original
+            
+            # Dibujar indicador de selección si está seleccionado
+            if self.seleccionado:
+                glPushAttrib(GL_CURRENT_BIT | GL_LIGHTING_BIT | GL_LINE_BIT)
+                glPushMatrix()
+                glTranslatef(*self.posicion)
+                glDisable(GL_LIGHTING)
+                glColor4f(1, 1, 0, 1)
+                glLineWidth(4)
+                glutWireCube(10.0)
+                glPopMatrix()
+                glPopAttrib()
+
+    return FractalSierpinski(posicion, color, nombre, iteraciones)
 
 def dibujar_info():
     """Dibuja información en pantalla"""
@@ -675,6 +984,12 @@ def dibujar_vista_previa():
             glutWireCube(4.0)
         elif modo_actual == "luz":
             glutWireCube(1.5)
+        elif modo_actual == "fractal":
+            glutWireCube(3.0)
+        elif modo_actual == "koch":
+            glutWireCube(4.0)
+        elif modo_actual == "sierpinski":
+            glutWireCube(4.0)
             
         glLineWidth(1)
         glDisable(GL_BLEND)
@@ -912,6 +1227,9 @@ def main():
     print("- 💡 Luz (ilumina la escena)")
     print("- 👆 Seleccionar y mover objetos")
     print("- 🖼️ Cambiar textura del césped")
+    print("- 🌀 Fractal (cubo recursivo)")
+    print("- ❄️ Koch (curva de Koch 3D)")
+    print("- 🔺 Sierpinski (triángulo de Sierpinski 3D)")
     print()
     print("¡Diviértete construyendo tu mundo! 🌟")
     

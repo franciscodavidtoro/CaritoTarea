@@ -11,7 +11,7 @@ ASPECT_RATIO = WINDOW_WIDTH / WINDOW_HEIGHT
 # Variables de interfaz adaptable
 BUTTON_HEIGHT = 40
 BUTTON_MARGIN = 10
-BUTTON_COUNT = 6
+BUTTON_COUNT = 8
 BUTTON_WIDTH = (WINDOW_WIDTH - (BUTTON_COUNT + 1) * BUTTON_MARGIN) // BUTTON_COUNT
 
 # Variables de selección
@@ -37,7 +37,7 @@ COLOR_TERRAIN = (0.2, 0.8, 0.3)         # Verde césped
 COLOR_SKY = (0.5, 0.7, 1.0, 1.0)        # Azul cielo
 
 # Variables de modo
-MODOS = ["navegacion", "arbol", "casa", "montana", "luz", "seleccionar", "fractal"]
+MODOS = ["navegacion", "arbol", "casa", "montana", "luz", "seleccionar", "fractal", "koch", "sierpinski"]
 
 # Variables globales de estado (se inicializarán en el programa principal)
 window_width = WINDOW_WIDTH
