@@ -534,9 +534,13 @@ def agregar_objeto(tipo, posicion):
     if tipo == "fractal":
         nuevo_objeto = crear_fractal((x, y, z), color_actual.copy(), nombre)
     elif tipo == "koch":
-        nuevo_objeto = crear_koch((x, y, z), color_actual.copy(), nombre)
+        # Color dorado específico para Koch
+        color_dorado = (0.8, 0.6, 0.2, 1.0)  # Dorado/amarillo
+        nuevo_objeto = crear_koch((x, y, z), color_dorado, nombre)
     elif tipo == "sierpinski":
-        nuevo_objeto = crear_sierpinski((x, y, z), color_actual.copy(), nombre)
+        # Color azul específico para Sierpinski
+        color_azul = (0.2, 0.4, 0.8, 1.0)  # Azul bonito
+        nuevo_objeto = crear_sierpinski((x, y, z), color_azul, nombre)
     else:
         nuevo_objeto = Objeto(
             tipo=tipo,
@@ -598,8 +602,8 @@ def crear_fractal(posicion, color, nombre, profundidad=3, escala=1.0):
     return Fractal(posicion, color, nombre, profundidad, escala)
 
 # --- Fractal de Koch 3D ---
-def crear_koch(posicion, color, nombre, iteraciones=3):
-    """Crea una curva de Koch en 3D"""
+def crear_koch(posicion, color, nombre, iteraciones=4):
+    """Crea una curva de Koch en 3D más realista"""
     class FractalKoch:
         def __init__(self, posicion, color, nombre, iteraciones):
             self.tipo = "koch"
@@ -608,271 +612,157 @@ def crear_koch(posicion, color, nombre, iteraciones=3):
             self.nombre = nombre
             self.seleccionado = False
             self.figuras = []
+            self.segmentos = []  # Lista para almacenar segmentos de línea
             self._crear_koch_3d(iteraciones)
 
         def _crear_koch_3d(self, iteraciones):
             """Crea una estructura 3D basada en la curva de Koch"""
             import math
             
-            # Puntos iniciales para formar un triángulo base
-            puntos = [
-                (self.posicion[0] - 2, self.posicion[1], self.posicion[2] - 1),
-                (self.posicion[0] + 2, self.posicion[1], self.posicion[2] - 1),
-                (self.posicion[0], self.posicion[1], self.posicion[2] + 1.7)
-            ]
+            # Crear un hexágono base (Copo de nieve de Koch)
+            radio = 3.0
+            vertices_hex = []
             
-            # Generar curva de Koch para cada lado del triángulo
-            for i in range(3):
-                p1 = puntos[i]
-                p2 = puntos[(i + 1) % 3]
-                puntos_koch = self._generar_curva_koch(p1, p2, iteraciones)
+            for i in range(6):
+                angulo = i * math.pi / 3  # 60 grados entre cada vértice
+                x = self.posicion[0] + radio * math.cos(angulo)
+                z = self.posicion[2] + radio * math.sin(angulo)
+                y = self.posicion[1]
+                vertices_hex.append((x, y, z))
+            
+            # Crear los 6 lados del hexágono aplicando Koch
+            for i in range(6):
+                p1 = vertices_hex[i]
+                p2 = vertices_hex[(i + 1) % 6]
+                puntos_koch = self._generar_curva_koch_2d(p1, p2, iteraciones)
                 
-                # Crear cubos pequeños en cada punto de la curva
-                for j in range(len(puntos_koch) - 1):
-                    punto = puntos_koch[j]
-                    # Crear un cubo pequeño en cada punto
-                    cubo = fg.Figura(
-                        tipo='cubo',
-                        posicion=punto,
-                        escala=(0.1, 0.1, 0.1),
-                        color=self.color
-                    )
-                    self.figuras.append(cubo)
-                    
-                    # Crear línea entre puntos consecutivos usando cilindros muy delgados
-                    if j < len(puntos_koch) - 1:
-                        punto_siguiente = puntos_koch[j + 1]
-                        punto_medio = (
-                            (punto[0] + punto_siguiente[0]) / 2,
-                            (punto[1] + punto_siguiente[1]) / 2,
-                            (punto[2] + punto_siguiente[2]) / 2
-                        )
-                        # Calcular distancia para escalar el cilindro
-                        dx = punto_siguiente[0] - punto[0]
-                        dy = punto_siguiente[1] - punto[1] 
-                        dz = punto_siguiente[2] - punto[2]
-                        longitud = math.sqrt(dx*dx + dy*dy + dz*dz)
-                        
-                        # Crear cilindro como línea
-                        linea = fg.Figura(
-                            tipo='cubo',
-                            posicion=punto_medio,
-                            escala=(longitud, 0.05, 0.05),
-                            color=self.color
-                        )
-                        self.figuras.append(linea)
+                # Crear la curva como una estructura 3D
+                self._crear_estructura_3d_desde_puntos(puntos_koch, radio / (2 ** iteraciones))
 
-        def _generar_curva_koch(self, p1, p2, iteraciones):
-            """Genera puntos de la curva de Koch entre dos puntos"""
+        def _generar_curva_koch_2d(self, p1, p2, iteraciones):
+            """Genera puntos de la curva de Koch entre dos puntos en 2D"""
             import math
             
             if iteraciones == 0:
                 return [p1, p2]
-            
-            # Calcular los puntos de la curva de Koch
-            puntos = [p1]
             
             # Vector del segmento
             dx = p2[0] - p1[0]
             dy = p2[1] - p1[1]
             dz = p2[2] - p1[2]
             
-            # Dividir en tercios
+            # Puntos que dividen el segmento en tercios
             p_a = (p1[0] + dx/3, p1[1] + dy/3, p1[2] + dz/3)
             p_b = (p1[0] + 2*dx/3, p1[1] + 2*dy/3, p1[2] + 2*dz/3)
             
-            # Punto del pico (triángulo equilátero)
-            # Vector perpendicular en el plano XZ
-            perp_x = -dz/3
-            perp_z = dx/3
-            altura = math.sqrt(3)/6 * math.sqrt(dx*dx + dz*dz)
+            # Calcular el punto del pico del triángulo equilátero
+            # Vector perpendicular en el plano XZ (elevándolo ligeramente)
+            longitud_segmento = math.sqrt(dx*dx + dz*dz)
+            altura_triangulo = longitud_segmento * math.sqrt(3) / 6
             
+            # Vector perpendicular normalizado
+            if longitud_segmento > 0:
+                perp_x = -dz / longitud_segmento * altura_triangulo
+                perp_z = dx / longitud_segmento * altura_triangulo
+            else:
+                perp_x = perp_z = 0
+            
+            # Punto del pico (ligeramente elevado para efecto 3D)
             p_pico = (
                 (p_a[0] + p_b[0])/2 + perp_x,
-                p1[1] + altura,  # Elevar el pico
+                p1[1] + altura_triangulo * 0.3,  # Elevar ligeramente
                 (p_a[2] + p_b[2])/2 + perp_z
             )
             
             # Recursión para cada segmento
-            if iteraciones > 1:
-                puntos.extend(self._generar_curva_koch(p1, p_a, iteraciones-1)[1:])
-                puntos.extend(self._generar_curva_koch(p_a, p_pico, iteraciones-1)[1:])
-                puntos.extend(self._generar_curva_koch(p_pico, p_b, iteraciones-1)[1:])
-                puntos.extend(self._generar_curva_koch(p_b, p2, iteraciones-1)[1:])
-            else:
-                puntos.extend([p_a, p_pico, p_b, p2])
+            resultado = []
+            resultado.extend(self._generar_curva_koch_2d(p1, p_a, iteraciones-1)[:-1])  # Sin el último punto para evitar duplicados
+            resultado.extend(self._generar_curva_koch_2d(p_a, p_pico, iteraciones-1)[:-1])
+            resultado.extend(self._generar_curva_koch_2d(p_pico, p_b, iteraciones-1)[:-1])
+            resultado.extend(self._generar_curva_koch_2d(p_b, p2, iteraciones-1))
             
-            return puntos
+            return resultado
 
-        def dibujar(self):
-            for figura in self.figuras:
-                figura.dibujar()
-            if self.seleccionado:
-                glPushAttrib(GL_CURRENT_BIT | GL_LIGHTING_BIT | GL_LINE_BIT)
-                glPushMatrix()
-                glTranslatef(*self.posicion)
-                glDisable(GL_LIGHTING)
-                glColor4f(1, 1, 0, 1)
-                glLineWidth(4)
-                glutWireCube(6.0)
-                glPopMatrix()
-                glPopAttrib()
-
-    return FractalKoch(posicion, color, nombre, iteraciones)
-
-# --- Triángulo de Sierpinski 3D ---
-def crear_sierpinski(posicion, color, nombre, iteraciones=4):
-    """Crea un triángulo de Sierpinski en 3D detallado como pirámide fractal"""
-    class FractalSierpinski:
-        def __init__(self, posicion, color, nombre, iteraciones):
-            self.tipo = "sierpinski"
-            self.posicion = list(posicion)
-            self.color = color
-            self.nombre = nombre
-            self.seleccionado = False
-            self.figuras = []
-            self._crear_sierpinski_tetraedro(iteraciones)
-
-        def _crear_sierpinski_tetraedro(self, iteraciones):
-            """Crea un tetraedro de Sierpinski con espacios bien definidos"""
+        def _crear_estructura_3d_desde_puntos(self, puntos, grosor_base):
+            """Crea estructura 3D a partir de una lista de puntos"""
             import math
             
-            # Tamaño inicial más grande para mejor visualización
-            tamaño_inicial = 6.0
-            altura = tamaño_inicial * math.sqrt(2/3)  # Altura de tetraedro regular
-            
-            # Vértices de un tetraedro regular centrado en la posición
-            vertices = [
-                # Vértice superior
-                (self.posicion[0], self.posicion[1] + altura * 0.75, self.posicion[2]),
+            for i in range(len(puntos) - 1):
+                p1 = puntos[i]
+                p2 = puntos[i + 1]
                 
-                # Base triangular
-                (self.posicion[0] - tamaño_inicial/2, self.posicion[1] - altura * 0.25, self.posicion[2] + tamaño_inicial/(2*math.sqrt(3))),
-                (self.posicion[0] + tamaño_inicial/2, self.posicion[1] - altura * 0.25, self.posicion[2] + tamaño_inicial/(2*math.sqrt(3))),
-                (self.posicion[0], self.posicion[1] - altura * 0.25, self.posicion[2] - tamaño_inicial/math.sqrt(3))
-            ]
-            
-            # Generar el fractal recursivamente
-            self._generar_tetraedro_recursivo(vertices, iteraciones, tamaño_inicial)
-
-        def _generar_tetraedro_recursivo(self, vertices, nivel, tamaño):
-            """Genera recursivamente el tetraedro de Sierpinski"""
-            if nivel == 0:
-                # Crear tetraedro sólido usando múltiples triángulos
-                self._crear_tetraedro_solido(vertices, tamaño)
-                return
-            
-            # Crear 4 tetraedros más pequeños en cada vértice
-            nuevo_tamaño = tamaño / 2
-            
-            for i in range(4):
-                # Para cada vértice, crear un tetraedro más pequeño
-                nuevo_centro = vertices[i]
+                # Calcular punto medio
+                punto_medio = (
+                    (p1[0] + p2[0]) / 2,
+                    (p1[1] + p2[1]) / 2,
+                    (p1[2] + p2[2]) / 2
+                )
                 
-                # Calcular los otros 3 vértices del tetraedro pequeño
-                # Cada vértice del tetraedro pequeño está en el punto medio de una arista
-                nuevos_vertices = [nuevo_centro]
+                # Calcular longitud del segmento
+                dx = p2[0] - p1[0]
+                dy = p2[1] - p1[1]
+                dz = p2[2] - p1[2]
+                longitud = math.sqrt(dx*dx + dy*dy + dz*dz)
                 
-                for j in range(4):
-                    if i != j:
-                        # Punto medio entre vértice i y vértice j
-                        punto_medio = (
-                            (vertices[i][0] + vertices[j][0]) / 2,
-                            (vertices[i][1] + vertices[j][1]) / 2,
-                            (vertices[i][2] + vertices[j][2]) / 2
-                        )
-                        nuevos_vertices.append(punto_medio)
+                # Calcular ángulos de rotación
+                if longitud > 0:
+                    # Ángulo en el plano XZ
+                    angulo_y = math.atan2(dx, dz) * 180 / math.pi
+                    # Ángulo de elevación
+                    angulo_x = -math.atan2(dy, math.sqrt(dx*dx + dz*dz)) * 180 / math.pi
+                else:
+                    angulo_y = angulo_x = 0
                 
-                # Recursión con los 4 nuevos vértices
-                self._generar_tetraedro_recursivo(nuevos_vertices, nivel - 1, nuevo_tamaño)
-
-        def _crear_tetraedro_solido(self, vertices, tamaño):
-            """Crea un tetraedro sólido usando figuras geométricas"""
-            # Calcular centro del tetraedro
-            centro = (
-                sum(v[0] for v in vertices) / 4,
-                sum(v[1] for v in vertices) / 4,
-                sum(v[2] for v in vertices) / 4
-            )
-            
-            # Crear el cuerpo principal del tetraedro
-            cubo_central = fg.Figura(
-                tipo='cubo',
-                posicion=centro,
-                escala=(tamaño/4, tamaño/4, tamaño/4),
-                color=self.color
-            )
-            self.figuras.append(cubo_central)
-            
-            # Crear vértices del tetraedro
-            for i, vertice in enumerate(vertices):
-                cubo_vertice = fg.Figura(
+                # Crear segmento como cubo alargado
+                grosor = max(grosor_base * 0.8, 0.05)
+                segmento = fg.Figura(
                     tipo='cubo',
-                    posicion=vertice,
-                    escala=(tamaño/8, tamaño/8, tamaño/8),
+                    posicion=punto_medio,
+                    rotacion=(angulo_x, angulo_y, 0),
+                    escala=(grosor, grosor, longitud),
                     color=self.color
                 )
-                self.figuras.append(cubo_vertice)
-            
-            # Crear aristas del tetraedro
-            for i in range(4):
-                for j in range(i + 1, 4):
-                    # Crear pequeños cubos a lo largo de cada arista
-                    p1 = vertices[i]
-                    p2 = vertices[j]
-                    
-                    # Crear 3 cubos intermedios en cada arista para mejor definición
-                    for t in [0.25, 0.5, 0.75]:
-                        punto_arista = (
-                            p1[0] + t * (p2[0] - p1[0]),
-                            p1[1] + t * (p2[1] - p1[1]),
-                            p1[2] + t * (p2[2] - p1[2])
-                        )
-                        cubo_arista = fg.Figura(
-                            tipo='cubo',
-                            posicion=punto_arista,
-                            escala=(tamaño/12, tamaño/12, tamaño/12),
-                            color=self.color
-                        )
-                        self.figuras.append(cubo_arista)
-            
-            # Crear caras del tetraedro (opcional, para mayor densidad visual)
-            if tamaño > 1.0:  # Solo para tetraedros más grandes
-                # Crear puntos en el centro de cada cara triangular
-                caras = [
-                    [0, 1, 2],  # Cara base
-                    [0, 1, 3],  # Cara lateral 1
-                    [0, 2, 3],  # Cara lateral 2
-                    [1, 2, 3]   # Cara lateral 3
-                ]
+                self.figuras.append(segmento)
                 
-                for cara in caras:
-                    centro_cara = (
-                        (vertices[cara[0]][0] + vertices[cara[1]][0] + vertices[cara[2]][0]) / 3,
-                        (vertices[cara[0]][1] + vertices[cara[1]][1] + vertices[cara[2]][1]) / 3,
-                        (vertices[cara[0]][2] + vertices[cara[1]][2] + vertices[cara[2]][2]) / 3
+                # Añadir esferas en los puntos de conexión para suavizar
+                if i == 0:  # Primera esfera
+                    esfera1 = fg.Figura(
+                        tipo='esfera',
+                        posicion=p1,
+                        escala=(grosor * 1.2, grosor * 1.2, grosor * 1.2),
+                        color=self.color,
+                        argumentos=grosor * 0.6
                     )
-                    cubo_cara = fg.Figura(
-                        tipo='cubo',
-                        posicion=centro_cara,
-                        escala=(tamaño/15, tamaño/15, tamaño/15),
-                        color=self.color
-                    )
-                    self.figuras.append(cubo_cara)
+                    self.figuras.append(esfera1)
+                
+                # Esfera en el segundo punto
+                esfera2 = fg.Figura(
+                    tipo='esfera',
+                    posicion=p2,
+                    escala=(grosor * 1.2, grosor * 1.2, grosor * 1.2),
+                    color=self.color,
+                    argumentos=grosor * 0.6
+                )
+                self.figuras.append(esfera2)
 
         def dibujar(self):
-            # Aplicar un efecto de gradiente de color basado en la altura y nivel
+            # Configurar material para el fractal de Koch
+            glEnable(GL_LIGHTING)
+            glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, self.color)
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [0.5, 0.5, 0.5, 1.0])
+            glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 64.0)
+            
+            # Dibujar todas las figuras del fractal
             for i, figura in enumerate(self.figuras):
-                # Modificar ligeramente el color basado en la posición Y para dar profundidad
-                altura_rel = (figura.posicion[1] - self.posicion[1] + 3) / 6
-                altura_rel = max(0, min(1, altura_rel))
+                # Aplicar gradiente de color basado en la posición
+                factor_altura = (figura.posicion[1] - self.posicion[1] + 2) / 4
+                factor_altura = max(0, min(1, factor_altura))
                 
-                # Crear gradiente más pronunciado para mejor contraste
-                factor_gradiente = 0.4
+                # Crear gradiente dorado/amarillo para Koch
                 color_modificado = (
-                    self.color[0] + altura_rel * factor_gradiente,
-                    self.color[1] + altura_rel * factor_gradiente * 0.8,
-                    self.color[2] + altura_rel * factor_gradiente * 0.6,
+                    min(1.0, self.color[0] + factor_altura * 0.4),  # Más rojizo en las alturas
+                    min(1.0, self.color[1] + factor_altura * 0.3),  # Más verdoso
+                    self.color[2] + factor_altura * 0.1,  # Poco azul
                     self.color[3]
                 )
                 
@@ -893,7 +783,225 @@ def crear_sierpinski(posicion, color, nombre, iteraciones=4):
                 glDisable(GL_LIGHTING)
                 glColor4f(1, 1, 0, 1)
                 glLineWidth(4)
-                glutWireCube(10.0)
+                glutWireCube(8.0)
+                glPopMatrix()
+                glPopAttrib()
+
+    return FractalKoch(posicion, color, nombre, iteraciones)
+
+# --- Triángulo de Sierpinski 3D ---
+def crear_sierpinski(posicion, color, nombre, iteraciones=4):
+    """Crea un tetraedro de Sierpinski en 3D con triángulos reales"""
+    class FractalSierpinski:
+        def __init__(self, posicion, color, nombre, iteraciones):
+            self.tipo = "sierpinski"
+            self.posicion = list(posicion)
+            self.color = color
+            self.nombre = nombre
+            self.seleccionado = False
+            self.figuras = []
+            self.triangulos = []  # Lista para almacenar triángulos directamente
+            self._crear_sierpinski_3d(iteraciones)
+
+        def _crear_sierpinski_3d(self, iteraciones):
+            """Crea un tetraedro de Sierpinski en 3D con triángulos reales"""
+            import math
+            
+            # Tamaño inicial del tetraedro
+            tamaño = 4.0
+            altura = tamaño * math.sqrt(2/3)  # Altura de tetraedro regular
+            
+            # Vértices de un tetraedro regular
+            vertices = [
+                # Vértice superior (punta de la pirámide)
+                (self.posicion[0], self.posicion[1] + altura, self.posicion[2]),
+                
+                # Base triangular (triángulo equilátero)
+                (self.posicion[0] - tamaño/2, self.posicion[1] - altura/3, self.posicion[2] + tamaño/(2*math.sqrt(3))),
+                (self.posicion[0] + tamaño/2, self.posicion[1] - altura/3, self.posicion[2] + tamaño/(2*math.sqrt(3))),
+                (self.posicion[0], self.posicion[1] - altura/3, self.posicion[2] - tamaño/math.sqrt(3))
+            ]
+            
+            # Generar el fractal recursivamente
+            self._generar_tetraedro_recursivo(vertices, iteraciones, tamaño)
+
+        def _generar_tetraedro_recursivo(self, vertices, nivel, tamaño):
+            """Genera recursivamente el tetraedro de Sierpinski"""
+            if nivel == 0:
+                # Crear tetraedro sólido con sus 4 caras triangulares
+                self._crear_tetraedro_solido(vertices, tamaño)
+                return
+            
+            nuevo_tamaño = tamaño / 2
+            
+            # Crear 4 tetraedros más pequeños, uno en cada vértice del tetraedro original
+            for i in range(4):
+                # Para cada vértice, crear un tetraedro más pequeño
+                nuevos_vertices = [vertices[i]]  # El vértice principal
+                
+                # Calcular los otros 3 vértices como puntos medios de las aristas
+                for j in range(4):
+                    if i != j:
+                        punto_medio = (
+                            (vertices[i][0] + vertices[j][0]) / 2,
+                            (vertices[i][1] + vertices[j][1]) / 2,
+                            (vertices[i][2] + vertices[j][2]) / 2
+                        )
+                        nuevos_vertices.append(punto_medio)
+                
+                # Recursión para crear el tetraedro más pequeño
+                self._generar_tetraedro_recursivo(nuevos_vertices, nivel - 1, nuevo_tamaño)
+
+        def _crear_tetraedro_solido(self, vertices, tamaño):
+            """Crea un tetraedro sólido dibujando sus 4 caras triangulares"""
+            # Las 4 caras del tetraedro (cada cara es un triángulo)
+            caras = [
+                [1, 2, 3],  # Base (triángulo inferior)
+                [0, 1, 2],  # Cara lateral 1
+                [0, 2, 3],  # Cara lateral 2
+                [0, 3, 1]   # Cara lateral 3
+            ]
+            
+            # Crear cada cara triangular del tetraedro
+            for i, cara in enumerate(caras):
+                vertices_cara = [vertices[cara[0]], vertices[cara[1]], vertices[cara[2]]]
+                
+                # Color ligeramente diferente para cada cara para mejor visualización
+                factor_color = 1.0 - (i * 0.1)  # Variar ligeramente el color por cara
+                color_cara = (
+                    self.color[0] * factor_color,
+                    self.color[1] * factor_color,
+                    self.color[2] * factor_color,
+                    self.color[3]
+                )
+                
+                self.triangulos.append({
+                    'vertices': vertices_cara,
+                    'color': color_cara,
+                    'tamaño': tamaño,
+                    'es_base': (i == 0)  # Marcar si es la base para orientar normales
+                })
+
+        def _dibujar_triangulo_3d(self, vertices, color, grosor=0.05, es_base=False):
+            """Dibuja un triángulo 3D con grosor real"""
+            
+            # Calcular normal del triángulo
+            v1 = vertices[0]
+            v2 = vertices[1]
+            v3 = vertices[2]
+            
+            # Vectores del triángulo
+            u = (v2[0] - v1[0], v2[1] - v1[1], v2[2] - v1[2])
+            v = (v3[0] - v1[0], v3[1] - v1[1], v3[2] - v1[2])
+            
+            # Producto cruz para obtener la normal
+            nx = u[1] * v[2] - u[2] * v[1]
+            ny = u[2] * v[0] - u[0] * v[2]
+            nz = u[0] * v[1] - u[1] * v[0]
+            
+            # Normalizar
+            length = (nx*nx + ny*ny + nz*nz)**0.5
+            if length > 0:
+                nx /= length
+                ny /= length
+                nz /= length
+            
+            # Si es la base, invertir normal para que apunte hacia abajo
+            if es_base:
+                nx, ny, nz = -nx, -ny, -nz
+            
+            # Dibujar cara frontal del triángulo
+            glBegin(GL_TRIANGLES)
+            glColor4f(*color)
+            glNormal3f(nx, ny, nz)
+            for vertex in vertices:
+                glVertex3f(vertex[0] + nx*grosor/2, vertex[1] + ny*grosor/2, vertex[2] + nz*grosor/2)
+            glEnd()
+            
+            # Dibujar cara trasera del triángulo (más oscura)
+            color_trasera = (color[0]*0.7, color[1]*0.7, color[2]*0.7, color[3])
+            glBegin(GL_TRIANGLES)
+            glColor4f(*color_trasera)
+            glNormal3f(-nx, -ny, -nz)
+            # Invertir orden para que la normal apunte correctamente
+            for i in reversed(range(3)):
+                vertex = vertices[i]
+                glVertex3f(vertex[0] - nx*grosor/2, vertex[1] - ny*grosor/2, vertex[2] - nz*grosor/2)
+            glEnd()
+            
+            # Dibujar los lados del triángulo (bordes con grosor)
+            color_lateral = (color[0]*0.8, color[1]*0.8, color[2]*0.8, color[3])
+            for i in range(3):
+                v_a = vertices[i]
+                v_b = vertices[(i + 1) % 3]
+                
+                # Crear un pequeño rectángulo para cada arista
+                glBegin(GL_QUADS)
+                glColor4f(*color_lateral)
+                
+                # Calcular normal lateral (perpendicular a la arista y a la normal del triángulo)
+                edge = (v_b[0] - v_a[0], v_b[1] - v_a[1], v_b[2] - v_a[2])
+                lateral_nx = ny * edge[2] - nz * edge[1]
+                lateral_ny = nz * edge[0] - nx * edge[2]
+                lateral_nz = nx * edge[1] - ny * edge[0]
+                
+                # Normalizar
+                lat_length = (lateral_nx*lateral_nx + lateral_ny*lateral_ny + lateral_nz*lateral_nz)**0.5
+                if lat_length > 0:
+                    lateral_nx /= lat_length
+                    lateral_ny /= lat_length
+                    lateral_nz /= lat_length
+                
+                glNormal3f(lateral_nx, lateral_ny, lateral_nz)
+                
+                # Vértices del rectángulo lateral
+                glVertex3f(v_a[0] - nx*grosor/2, v_a[1] - ny*grosor/2, v_a[2] - nz*grosor/2)
+                glVertex3f(v_b[0] - nx*grosor/2, v_b[1] - ny*grosor/2, v_b[2] - nz*grosor/2)
+                glVertex3f(v_b[0] + nx*grosor/2, v_b[1] + ny*grosor/2, v_b[2] + nz*grosor/2)
+                glVertex3f(v_a[0] + nx*grosor/2, v_a[1] + ny*grosor/2, v_a[2] + nz*grosor/2)
+                glEnd()
+
+        def dibujar(self):
+            # Configurar material para los triángulos
+            glEnable(GL_LIGHTING)
+            glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, self.color)
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [0.4, 0.4, 0.4, 1.0])
+            glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 64.0)
+            
+            # Dibujar todos los triángulos del tetraedro
+            for triangulo in self.triangulos:
+                # Aplicar gradiente de color azul basado en el tamaño (nivel de recursión)
+                factor_gradiente = triangulo['tamaño'] / 4.0  # Normalizar basado en tamaño inicial
+                
+                # Crear gradiente de azules más bonito
+                color_modificado = (
+                    triangulo['color'][0] + factor_gradiente * 0.3,  # Más rojo para azules más claros
+                    triangulo['color'][1] + factor_gradiente * 0.4,  # Más verde para tonos cyan
+                    min(1.0, triangulo['color'][2] + factor_gradiente * 0.5),  # Más azul
+                    triangulo['color'][3]
+                )
+                
+                # Asegurar que los valores estén entre 0 y 1
+                color_modificado = tuple(max(0, min(1, c)) for c in color_modificado)
+                
+                # Dibujar el triángulo 3D con grosor proporcional a su tamaño
+                grosor = max(0.03, triangulo['tamaño'] / 30)
+                self._dibujar_triangulo_3d(
+                    triangulo['vertices'], 
+                    color_modificado, 
+                    grosor,
+                    triangulo['es_base']
+                )
+            
+            # Dibujar indicador de selección si está seleccionado
+            if self.seleccionado:
+                glPushAttrib(GL_CURRENT_BIT | GL_LIGHTING_BIT | GL_LINE_BIT)
+                glPushMatrix()
+                glTranslatef(*self.posicion)
+                glDisable(GL_LIGHTING)
+                glColor4f(1, 1, 0, 1)
+                glLineWidth(4)
+                glutWireCube(8.0)
                 glPopMatrix()
                 glPopAttrib()
 
