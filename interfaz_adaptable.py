@@ -118,7 +118,7 @@ class Boton:
             glutBitmapCharacter(fuente, ord(char))
         interfaz.restaurar_proyeccion_3d()
 
-# --- Agregar función para crear los botones incluyendo el de fractal ---
+# --- Agregar función para crear los botones incluyendo el de esponja ---
 def crear_botones(interfaz):
     colores = [
         (0.2, 0.6, 0.9),  # Navegación
@@ -127,12 +127,12 @@ def crear_botones(interfaz):
         (0.5, 0.5, 0.5),  # Montaña
         (1.0, 1.0, 0.2),  # Luz
         (1.0, 0.2, 0.2),  # Seleccionar
-        (0.6, 0.2, 0.8),  # Fractal
+        (0.6, 0.2, 0.8),  # Esponja
         (0.8, 0.4, 0.6),  # Koch
         (0.4, 0.8, 0.6),  # Sierpinski
     ]
     textos = [
-        "Navegación", "Árbol", "Casa", "Montaña", "Luz", "Seleccionar", "Fractal", "Koch", "Sierpinski"
+        "Navegación", "Árbol", "Casa", "Montaña", "Luz", "Seleccionar", "Esponja", "Koch", "Sierpinski"
     ]
     modos = cfg.MODOS
     botones = []

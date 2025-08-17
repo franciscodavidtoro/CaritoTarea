@@ -78,10 +78,14 @@ class Figura:
         glRotatef(self.rotacion[2], 0, 0, 1)
         glScale(self.escala[0], self.escala[1], self.escala[2])
         glColor4f(*self.color)
-        # Configurar el material para que el color funcione con iluminación
-        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, self.color)
-        glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [0.1, 0.1, 0.1, 1.0])
-        glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 0.0)
+        
+        # Configurar el material para que el color funcione con iluminación (menos reflectivo)
+        ambient = [self.color[0] * 0.3, self.color[1] * 0.3, self.color[2] * 0.3, self.color[3]]
+        diffuse = [self.color[0] * 0.8, self.color[1] * 0.8, self.color[2] * 0.8, self.color[3]]
+        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ambient)
+        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse)
+        glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [0.05, 0.05, 0.05, 1.0])
+        glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 1.0)
         
         if self.show_wireframe:
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)

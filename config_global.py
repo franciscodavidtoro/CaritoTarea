@@ -37,7 +37,7 @@ COLOR_TERRAIN = (0.2, 0.8, 0.3)         # Verde césped
 COLOR_SKY = (0.5, 0.7, 1.0, 1.0)        # Azul cielo
 
 # Variables de modo
-MODOS = ["navegacion", "arbol", "casa", "montana", "luz", "seleccionar", "fractal", "koch", "sierpinski"]
+MODOS = ["navegacion", "arbol", "casa", "montana", "luz", "seleccionar", "esponja", "koch", "sierpinski"]
 
 # Variables globales de estado (se inicializarán en el programa principal)
 window_width = WINDOW_WIDTH
