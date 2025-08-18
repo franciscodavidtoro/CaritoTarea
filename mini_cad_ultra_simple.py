@@ -17,6 +17,7 @@ from sistema_seleccion import SistemaSeleccion
 from objetos.arboles import crear_arbol
 from objetos.casas import crear_casa
 from objetos.cesped import inicializar_cesped
+from objetos.carro import carro
 
 # Función para crear montaña (basada en gupoMontannas.py)
 def crear_montana(pos_x, pos_z):
@@ -48,6 +49,19 @@ def crear_luz(pos_x, pos_z):
         argumentos=0.3
     )
     return [poste, lampara]
+
+# Función para crear carro
+def crear_carro(pos_x, pos_z):
+    """Crea un carro en la posición especificada usando el carro del archivo"""
+    import copy
+    # Crear una copia profunda del carro del archivo
+    carro_copia = copy.deepcopy(carro)
+    
+    # El carro ya tiene su rotación inicial (0, 270, 0)
+    # Aplicar la posición al objeto carro
+    carro_copia.posicion = [pos_x, 0, pos_z]
+    
+    return carro_copia
 
 # Función para cambiar textura del césped
 def cambiar_textura_cesped():
@@ -121,6 +135,11 @@ modo_actual = "navegacion"
 contador_objetos = 0
 color_actual = [0.2, 0.8, 0.2, 1.0]
 mouse_pos_3d = (0, 0, 0)
+
+# Variables para control del carro
+carro_existente = None
+modo_manejo = False
+teclas_presionadas = set()  # Para controles continuos
 
 # Variables de cámara
 camera_pos = list(cfg.DEFAULT_CAMERA_POS)
@@ -209,7 +228,9 @@ def crear_botones(interfaz):
         ("🏠 CASA", "casa", [0.8, 0.6, 0.3]),
         ("⛰️ MONTANA", "montana", [0.5, 0.5, 0.8]),
         ("💡 LUZ", "luz", [0.9, 0.9, 0.2]),
-        ("👆 SELECT", "seleccionar", [0.8, 0.2, 0.8]),
+        ("� CARRO", "carro", [0.9, 0.3, 0.2]),
+        ("🎮 MANEJAR", "manejar", [0.3, 0.9, 0.3]),
+        ("�👆 SELECT", "seleccionar", [0.8, 0.2, 0.8]),
         ("🖼️ TEXTURA", "cambiar_textura", [0.2, 0.6, 0.9]),
         ("🧽 ESPONJA", "esponja", [0.6, 0.2, 0.8]),
         ("❄️ KOCH", "koch", [0.8, 0.4, 0.6]),
@@ -235,6 +256,8 @@ class Objeto:
         self.nombre = nombre
         self.seleccionado = False
         self.figuras = []
+        # Agregar propiedad de rotación para todos los objetos
+        self.rotacion = [0, 0, 0]  # [X, Y, Z] en grados
         
         # Crear las figuras usando las funciones de la carpeta objetos
         if tipo == "arbol":
@@ -248,37 +271,38 @@ class Objeto:
             self.figuras = crear_montana(posicion[0], posicion[2])
         elif tipo == "luz":
             self.figuras = crear_luz(posicion[0], posicion[2])
+        elif tipo == "carro":
+            self.carro_obj = crear_carro(posicion[0], posicion[2])
+            # Para el carro, usamos directamente el objeto del archivo
+            self.figuras = []  # No usamos figuras individuales
+            # Inicializar rotación del carro con la rotación inicial del archivo
+            self.rotacion = [0, 270, 0]  # Rotación inicial del carro
     
     def dibujar(self):
-        # Primero dibujar todas las figuras del objeto
-        for figura in self.figuras:
-            figura.dibujar()
+        # Si es un carro, actualizar sus propiedades y dibujarlo
+        if self.tipo == "carro" and hasattr(self, 'carro_obj'):
+            # Simplemente actualizar las propiedades del objeto carro
+            self.carro_obj.posicion = list(self.posicion)
+            self.carro_obj.rotacion = tuple(self.rotacion)  # Usar la rotación del objeto
+            self.carro_obj.dibujar()
+        else:
+            # Para todos los otros objetos, dibujar sus figuras normalmente
+            for figura in self.figuras:
+                figura.dibujar()
+                figura.dibujar()
         
-        # Si está seleccionado, dibujar wireframe de selección DESPUÉS
+        # Wireframe de selección (igual para todos los objetos)
         if self.seleccionado:
-            # Guardar estado actual
             glPushAttrib(GL_CURRENT_BIT | GL_LIGHTING_BIT | GL_LINE_BIT)
-            
             glPushMatrix()
             glTranslatef(*self.posicion)
-            
-            # Desactivar iluminación solo para el wireframe
             glDisable(GL_LIGHTING)
-            
-            # Color amarillo brillante para selección
-            glColor4f(1, 1, 0, 1)  # Amarillo
+            glColor4f(1, 1, 0, 1)
             glLineWidth(4)
-            
-            # Wireframe exterior
             glutWireCube(4.0)
-            
-            # Wireframe interior más pequeño
-            glColor4f(1, 0.8, 0, 0.8)  # Amarillo-naranja semi-transparente
+            glColor4f(1, 0.8, 0, 0.8)
             glutWireCube(3.0)
-            
             glPopMatrix()
-            
-            # Restaurar estado
             glPopAttrib()
 
 def configurar_luces():
@@ -333,7 +357,7 @@ def set_camera():
 
 def mouse_click(button, state, x, y):
     """Maneja clics del mouse usando el nuevo sistema"""
-    global modo_actual, contador_objetos
+    global modo_actual, contador_objetos, modo_manejo, carro_existente
     
     if button == GLUT_LEFT_BUTTON:
         if state == GLUT_DOWN:
@@ -359,6 +383,15 @@ def mouse_click(button, state, x, y):
                         # Volver a modo navegación después de cambiar textura
                         modo_actual = "navegacion"
                         boton.activo = False
+                    # Si es modo manejar, verificar que hay un carro
+                    elif modo_actual == "manejar":
+                        if carro_existente is None:
+                            print("No hay carro para manejar. Agregue un carro primero.")
+                            modo_actual = "navegacion"
+                            boton.activo = False
+                        else:
+                            modo_manejo = True
+                            print("Modo manejo activado. Use WASD para mover el carro, ESC para salir del modo manejo.")
                     
                     boton_clickeado = True
                     break
@@ -512,7 +545,13 @@ def convertir_mouse_a_3d(mouse_x, mouse_y):
 
 def agregar_objeto(tipo, posicion):
     """Agrega un objeto a la escena"""
-    global contador_objetos
+    global contador_objetos, carro_existente
+    
+    # Si es un carro, verificar que no haya otro
+    if tipo == "carro":
+        if carro_existente is not None:
+            print("Ya existe un carro en la escena. Solo se permite uno.")
+            return
     
     contador_objetos += 1
     nombre = f"{tipo.capitalize()} {contador_objetos}"
@@ -524,7 +563,7 @@ def agregar_objeto(tipo, posicion):
     z = max(-40, min(40, z))  # Limitar Z entre -40 y 40
     
     # Ajustar la posición Y según el tipo de objeto
-    if tipo in ["arbol", "casa", "montana"]:
+    if tipo in ["arbol", "casa", "montana", "carro"]:
         y = 0  # En el suelo
     elif tipo == "luz":
         y = 0  # En el suelo también
@@ -550,6 +589,11 @@ def agregar_objeto(tipo, posicion):
         )
 
     objetos.append(nuevo_objeto)
+    
+    # Si es un carro, guardar la referencia
+    if tipo == "carro":
+        carro_existente = nuevo_objeto
+    
     print(f"Agregado: {nombre} en ({x:.1f}, {y:.1f}, {z:.1f})")
 
 # --- Esponja de Sierpinski ---
@@ -1071,6 +1115,8 @@ def crear_sierpinski(posicion, color, nombre, iteraciones=4):
 
 def dibujar_info():
     """Dibuja información en pantalla"""
+    global modo_manejo, carro_existente
+    
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
     glLoadIdentity()
@@ -1086,31 +1132,46 @@ def dibujar_info():
     # Información en la parte inferior
     glColor3f(1, 1, 1)
     
-    info = [
-        f"Mini CAD Simple - Modo: {modo_actual.upper()}",
-        f"Objetos en escena: {len(objetos)}",
-        f"Posición del cursor: ({mouse_pos_3d[0]:.1f}, {mouse_pos_3d[1]:.1f}, {mouse_pos_3d[2]:.1f})",
-        f"Cámara: ({camera_pos[0]:.1f}, {camera_pos[1]:.1f}, {camera_pos[2]:.1f})",
-    ]
-    
-    # Agregar información del objeto seleccionado
-    if sistema_seleccion.objeto_seleccionado:
+    # Mostrar información especial si estamos en modo manejo
+    if modo_manejo and carro_existente:
+        info = [
+            f"🎮 MODO MANEJO ACTIVADO",
+            f"Carro en posición: ({carro_existente.posicion[0]:.1f}, {carro_existente.posicion[1]:.1f}, {carro_existente.posicion[2]:.1f})",
+            "",
+            "Controles del carro:",
+            "W - Adelante",
+            "S - Atrás",
+            "A - Izquierda",
+            "D - Derecha",
+            "ESC - Volver al modo edición",
+        ]
+    else:
+        info = [
+            f"Mini CAD Simple - Modo: {modo_actual.upper()}",
+            f"Objetos en escena: {len(objetos)}",
+            f"Posición del cursor: ({mouse_pos_3d[0]:.1f}, {mouse_pos_3d[1]:.1f}, {mouse_pos_3d[2]:.1f})",
+            f"Cámara: ({camera_pos[0]:.1f}, {camera_pos[1]:.1f}, {camera_pos[2]:.1f})",
+        ]
+        
+        # Agregar información del objeto seleccionado
+        if sistema_seleccion.objeto_seleccionado:
+            info.extend([
+                f"📍 Seleccionado: {sistema_seleccion.objeto_seleccionado.nombre}",
+                f"   Posición: ({sistema_seleccion.objeto_seleccionado.posicion[0]:.1f}, {sistema_seleccion.objeto_seleccionado.posicion[1]:.1f}, {sistema_seleccion.objeto_seleccionado.posicion[2]:.1f})",
+                f"   {'🔄 Arrastrando...' if sistema_seleccion.arrastrando_objeto else '👆 Haz clic y arrastra para mover'}"
+            ])
+        
         info.extend([
-            f"📍 Seleccionado: {sistema_seleccion.objeto_seleccionado.nombre}",
-            f"   Posición: ({sistema_seleccion.objeto_seleccionado.posicion[0]:.1f}, {sistema_seleccion.objeto_seleccionado.posicion[1]:.1f}, {sistema_seleccion.objeto_seleccionado.posicion[2]:.1f})",
-            f"   {'🔄 Arrastrando...' if sistema_seleccion.arrastrando_objeto else '👆 Haz clic y arrastra para mover'}"
+            "Instrucciones:",
+            "1. Haz clic en un botón para seleccionar herramienta",
+            "2. Mueve el mouse para ver vista previa",
+            "3. Haz clic en el terreno para agregar objeto",
+            "4. Usa SELECCIONAR para elegir y mover objetos",
+            "5. Agrega un CARRO y usa MANEJAR para controlarlo",
+            "6. Usa WASD para mover la cámara (o carro en modo manejo)",
+            "7. Usa Q/E para rotar la cámara",
+            "8. ESC para limpiar escena o salir del modo manejo"
         ])
-    
-    info.extend([
-        "Instrucciones:",
-        "1. Haz clic en un botón para seleccionar herramienta",
-        "2. Mueve el mouse para ver vista previa",
-        "3. Haz clic en el terreno para agregar objeto",
-        "4. Usa SELECCIONAR para elegir y mover objetos",
-        "5. Usa WASD para mover la cámara",
-        "6. Usa Q/E para rotar la cámara",
-        "7. ESC para limpiar escena"
-    ])
     
     y_start = 100
     for i, linea in enumerate(info):
@@ -1119,7 +1180,13 @@ def dibujar_info():
             glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_12, ord(char))
     
     # Mostrar modo actual en grande
-    if modo_actual != "navegacion":
+    if modo_manejo:
+        glColor3f(0, 1, 0)  # Verde para modo manejo
+        glRasterPos2f(300, 80)
+        texto_modo = "🎮 MODO MANEJO"
+        for char in texto_modo:
+            glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord(char))
+    elif modo_actual != "navegacion":
         glColor3f(1, 1, 0)  # Amarillo
         glRasterPos2f(300, 80)
         texto_modo = f"MODO: {modo_actual.upper()}"
@@ -1136,7 +1203,13 @@ def dibujar_info():
 
 def dibujar_vista_previa():
     """Dibuja una vista previa del objeto que se va a colocar"""
-    if modo_actual != "navegacion" and modo_actual != "seleccionar" and modo_actual != "cambiar_textura":
+    global modo_manejo
+    
+    # No mostrar vista previa en modo manejo
+    if modo_manejo:
+        return
+        
+    if modo_actual != "navegacion" and modo_actual != "seleccionar" and modo_actual != "cambiar_textura" and modo_actual != "manejar":
         glPushMatrix()
         glTranslatef(*mouse_pos_3d)
         
@@ -1154,6 +1227,8 @@ def dibujar_vista_previa():
             glutWireCube(4.0)
         elif modo_actual == "luz":
             glutWireCube(1.5)
+        elif modo_actual == "carro":
+            glutWireCube(3.0)
         elif modo_actual == "esponja":
             glutWireCube(3.0)
         elif modo_actual == "koch":
@@ -1192,6 +1267,9 @@ def display():
     """Función principal de dibujado"""
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     
+    # Actualizar movimiento del carro si estamos en modo manejo
+    actualizar_movimiento_carro()
+    
     set_camera()
     configurar_luces()
     
@@ -1222,96 +1300,199 @@ def display():
 
 def keyboard(key, x, y):
     """Maneja teclas del teclado"""
-    global objetos, camera_pos, camera_target, camera_angle
+    global objetos, camera_pos, camera_target, camera_angle, modo_manejo, carro_existente, modo_actual, teclas_presionadas
     
-    # Limpiar escena con ESC
+    # Agregar tecla a las presionadas
+    teclas_presionadas.add(key)
+    
+    # Limpiar escena con ESC o salir del modo manejo
     if key == b'\x1b':  # ESC
-        objetos.clear()
-        print("Escena limpiada")
-        glutPostRedisplay()
+        if modo_manejo:
+            # Salir del modo manejo
+            modo_manejo = False
+            modo_actual = "navegacion"
+            teclas_presionadas.clear()
+            # Desactivar todos los botones
+            for boton in botones:
+                boton.activo = False
+            print("Modo manejo desactivado. Volviendo al modo edición.")
+            glutPostRedisplay()
+            return
+        else:
+            objetos.clear()
+            carro_existente = None
+            angulo_carro = 0.0
+            teclas_presionadas.clear()
+            print("Escena limpiada")
+            glutPostRedisplay()
+            return
     
-    # Movimiento de cámara con WASD
-    elif key == b'w' or key == b'W':  # Mover hacia adelante
-        # Calcular dirección hacia adelante
-        dx = camera_target[0] - camera_pos[0]
-        dz = camera_target[2] - camera_pos[2]
-        # Normalizar
-        length = (dx**2 + dz**2)**0.5
-        if length > 0:
-            dx /= length
-            dz /= length
-        # Mover cámara y target
-        camera_pos[0] += dx * camera_speed
-        camera_pos[2] += dz * camera_speed
-        camera_target[0] += dx * camera_speed
-        camera_target[2] += dz * camera_speed
-        glutPostRedisplay()
-        
-    elif key == b's' or key == b'S':  # Mover hacia atrás
-        # Calcular dirección hacia atrás
-        dx = camera_target[0] - camera_pos[0]
-        dz = camera_target[2] - camera_pos[2]
-        # Normalizar
-        length = (dx**2 + dz**2)**0.5
-        if length > 0:
-            dx /= length
-            dz /= length
-        # Mover cámara y target
-        camera_pos[0] -= dx * camera_speed
-        camera_pos[2] -= dz * camera_speed
-        camera_target[0] -= dx * camera_speed
-        camera_target[2] -= dz * camera_speed
-        glutPostRedisplay()
-        
-    elif key == b'a' or key == b'A':  # Mover hacia la izquierda
-        # Calcular dirección hacia adelante
-        dx = camera_target[0] - camera_pos[0]
-        dz = camera_target[2] - camera_pos[2]
-        # Calcular dirección perpendicular (izquierda)
-        left_dx = -dz
-        left_dz = dx
-        # Normalizar
-        length = (left_dx**2 + left_dz**2)**0.5
-        if length > 0:
-            left_dx /= length
-            left_dz /= length
-        # Mover cámara y target
-        camera_pos[0] += left_dx * camera_speed
-        camera_pos[2] += left_dz * camera_speed
-        camera_target[0] += left_dx * camera_speed
-        camera_target[2] += left_dz * camera_speed
-        glutPostRedisplay()
-        
-    elif key == b'd' or key == b'D':  # Mover hacia la derecha
-        # Calcular dirección hacia adelante
-        dx = camera_target[0] - camera_pos[0]
-        dz = camera_target[2] - camera_pos[2]
-        # Calcular dirección perpendicular (derecha)
-        right_dx = dz
-        right_dz = -dx
-        # Normalizar
-        length = (right_dx**2 + right_dz**2)**0.5
-        if length > 0:
-            right_dx /= length
-            right_dz /= length
-        # Mover cámara y target
-        camera_pos[0] += right_dx * camera_speed
-        camera_pos[2] += right_dz * camera_speed
-        camera_target[0] += right_dx * camera_speed
-        camera_target[2] += right_dz * camera_speed
-        glutPostRedisplay()
+    # En modo manejo, las teclas WASD se manejan continuamente
+    if modo_manejo and carro_existente:
+        # El movimiento se maneja en actualizar_movimiento_carro()
+        return
     
-    # Rotación de cámara con Q y E
-    elif key == b'q' or key == b'Q':  # Rotar hacia la izquierda
-        camera_angle -= camera_rotation_speed
-        glutPostRedisplay()
+    # Movimiento de cámara con WASD (solo si no estamos en modo manejo)
+    if not modo_manejo:
+        if key == b'w' or key == b'W':  # Mover hacia adelante
+            # Calcular dirección hacia adelante
+            dx = camera_target[0] - camera_pos[0]
+            dz = camera_target[2] - camera_pos[2]
+            # Normalizar
+            length = (dx**2 + dz**2)**0.5
+            if length > 0:
+                dx /= length
+                dz /= length
+            # Mover cámara y target
+            camera_pos[0] += dx * camera_speed
+            camera_pos[2] += dz * camera_speed
+            camera_target[0] += dx * camera_speed
+            camera_target[2] += dz * camera_speed
+            glutPostRedisplay()
+            
+        elif key == b's' or key == b'S':  # Mover hacia atrás
+            # Calcular dirección hacia atrás
+            dx = camera_target[0] - camera_pos[0]
+            dz = camera_target[2] - camera_pos[2]
+            # Normalizar
+            length = (dx**2 + dz**2)**0.5
+            if length > 0:
+                dx /= length
+                dz /= length
+            # Mover cámara y target
+            camera_pos[0] -= dx * camera_speed
+            camera_pos[2] -= dz * camera_speed
+            camera_target[0] -= dx * camera_speed
+            camera_target[2] -= dz * camera_speed
+            glutPostRedisplay()
+            
+        elif key == b'a' or key == b'A':  # Mover hacia la izquierda
+            # Calcular dirección hacia adelante
+            dx = camera_target[0] - camera_pos[0]
+            dz = camera_target[2] - camera_pos[2]
+            # Calcular dirección perpendicular (izquierda)
+            left_dx = -dz
+            left_dz = dx
+            # Normalizar
+            length = (left_dx**2 + left_dz**2)**0.5
+            if length > 0:
+                left_dx /= length
+                left_dz /= length
+            # Mover cámara y target
+            camera_pos[0] += left_dx * camera_speed
+            camera_pos[2] += left_dz * camera_speed
+            camera_target[0] += left_dx * camera_speed
+            camera_target[2] += left_dz * camera_speed
+            glutPostRedisplay()
+            
+        elif key == b'd' or key == b'D':  # Mover hacia la derecha
+            # Calcular dirección hacia adelante
+            dx = camera_target[0] - camera_pos[0]
+            dz = camera_target[2] - camera_pos[2]
+            # Calcular dirección perpendicular (derecha)
+            right_dx = dz
+            right_dz = -dx
+            # Normalizar
+            length = (right_dx**2 + right_dz**2)**0.5
+            if length > 0:
+                right_dx /= length
+                right_dz /= length
+            # Mover cámara y target
+            camera_pos[0] += right_dx * camera_speed
+            camera_pos[2] += right_dz * camera_speed
+            camera_target[0] += right_dx * camera_speed
+            camera_target[2] += right_dz * camera_speed
+            glutPostRedisplay()
         
-    elif key == b'e' or key == b'E':  # Rotar hacia la derecha
-        camera_angle += camera_rotation_speed
-        glutPostRedisplay()
+        # Rotación de cámara con Q y E
+        elif key == b'q' or key == b'Q':  # Rotar hacia la izquierda
+            camera_angle -= camera_rotation_speed
+            glutPostRedisplay()
+            
+        elif key == b'e' or key == b'E':  # Rotar hacia la derecha
+            camera_angle += camera_rotation_speed
+            glutPostRedisplay()
     
-    # Mostrar posición actual de la cámara
-    print(f"Cámara en: ({camera_pos[0]:.1f}, {camera_pos[1]:.1f}, {camera_pos[2]:.1f}) - Ángulo: {camera_angle:.1f}°")
+        # Mostrar posición actual de la cámara
+        print(f"Cámara en: ({camera_pos[0]:.1f}, {camera_pos[1]:.1f}, {camera_pos[2]:.1f}) - Ángulo: {camera_angle:.1f}°")
+
+def keyboard_up(key, x, y):
+    """Maneja cuando se libera una tecla"""
+    global teclas_presionadas
+    teclas_presionadas.discard(key)
+
+def idle():
+    """Función idle para animación continua"""
+    if modo_manejo and teclas_presionadas:
+        glutPostRedisplay()
+
+def idle():
+    """Función idle para animación continua"""
+    if modo_manejo and teclas_presionadas:
+        glutPostRedisplay()
+
+def actualizar_movimiento_carro():
+    """Actualiza el movimiento del carro basado en las teclas presionadas"""
+    global carro_existente, camera_pos, camera_target
+    
+    if not modo_manejo or not carro_existente:
+        return
+    
+    velocidad_carro = 0.2
+    velocidad_rotacion = 2.0
+    
+    # Rotar el carro con A y D - modificar directamente la rotación del objeto
+    if b'a' in teclas_presionadas or b'A' in teclas_presionadas:
+        carro_existente.rotacion[1] += velocidad_rotacion
+    
+    if b'd' in teclas_presionadas or b'D' in teclas_presionadas:
+        carro_existente.rotacion[1] -= velocidad_rotacion
+    
+    # Mover el carro hacia adelante/atrás según su orientación
+    import math
+    
+    # Usar la rotación Y del objeto directamente
+    angulo_total = carro_existente.rotacion[1] + 90  # Compensar la rotación inicial del carro
+    
+    if b'w' in teclas_presionadas or b'W' in teclas_presionadas:
+        # Mover hacia adelante modificando directamente la posición
+        dx = math.sin(math.radians(angulo_total)) * velocidad_carro
+        dz = math.cos(math.radians(angulo_total)) * velocidad_carro
+        carro_existente.posicion[0] += dx
+        carro_existente.posicion[2] += dz
+    
+    if b's' in teclas_presionadas or b'S' in teclas_presionadas:
+        # Mover hacia atrás modificando directamente la posición
+        dx = -math.sin(math.radians(angulo_total)) * velocidad_carro
+        dz = -math.cos(math.radians(angulo_total)) * velocidad_carro
+        carro_existente.posicion[0] += dx
+        carro_existente.posicion[2] += dz
+    
+    # Actualizar cámara para seguir al carro con rotación
+    if carro_existente:
+        # Posicionar cámara detrás del carro considerando su rotación
+        distancia_camara = 8.0
+        altura_camara = 4.0
+        
+        # Usar la rotación Y del objeto directamente
+        angulo_total = carro_existente.rotacion[1] + 90  # Compensar la rotación inicial del carro
+        
+        # Calcular posición de la cámara detrás del carro según su orientación
+        cam_x = carro_existente.posicion[0] - math.sin(math.radians(angulo_total)) * distancia_camara
+        cam_z = carro_existente.posicion[2] - math.cos(math.radians(angulo_total)) * distancia_camara
+        
+        camera_pos[0] = cam_x
+        camera_pos[1] = altura_camara
+        camera_pos[2] = cam_z
+        
+        # La cámara mira hacia el carro (ligeramente adelante para mejor vista)
+        look_ahead_distance = 2.0
+        target_x = carro_existente.posicion[0] + math.sin(math.radians(angulo_total)) * look_ahead_distance
+        target_z = carro_existente.posicion[2] + math.cos(math.radians(angulo_total)) * look_ahead_distance
+        
+        camera_target[0] = target_x
+        camera_target[1] = carro_existente.posicion[1] + 1.0
+        camera_target[2] = target_z
 
 def detectar_objeto_bajo_cursor(mouse_x, mouse_y):
     """Detecta qué objeto está bajo el cursor del mouse"""
@@ -1372,23 +1553,27 @@ def main():
     glutPassiveMotionFunc(mouse_motion)  # Para movimiento del mouse sin clic
     glutMotionFunc(mouse_motion)  # Para movimiento del mouse con botón presionado (arrastre)
     glutKeyboardFunc(keyboard)
+    glutKeyboardUpFunc(keyboard_up)  # Para teclas liberadas
     glutDisplayFunc(display)
     glutReshapeFunc(callback_redimensionar)  # Para redimensionado de ventana
+    glutIdleFunc(idle)  # Función idle para redibujado continuo
     
-    print("=== Mini CAD Adaptable - Seleccionar y Mover ===")
+    print("=== Mini CAD Adaptable - Con Carro Manejable ===")
     print()
     print("🎮 Instrucciones:")
-    print("1. Haz clic en uno de los 5 botones superiores")
+    print("1. Haz clic en uno de los botones para seleccionar objeto")
     print("2. Haz clic en el terreno verde donde quieras el objeto")
     print("3. ¡El objeto aparece automáticamente!")
+    print("4. Agrega un CARRO y usa MANEJAR para controlarlo")
     print()
     print("🔧 Controles:")
     print("- Click en botones: Seleccionar herramienta")
     print("- Click en terreno: Agregar objeto")
     print("- Modo SELECCIONAR: Click en objeto para seleccionar, arrastra para mover")
-    print("- WASD: Mover cámara (W=adelante, S=atrás, A=izquierda, D=derecha)")
-    print("- Q/E: Rotar cámara (Q=izquierda, E=derecha)")
-    print("- ESC: Limpiar toda la escena")
+    print("- WASD en modo normal: Mover cámara")
+    print("- WASD en modo MANEJO: W/S=adelante/atrás, A/D=girar izquierda/derecha")
+    print("- Q/E: Rotar cámara (solo en modo normal)")
+    print("- ESC: Limpiar escena o salir del modo manejo")
     print()
     print("🎯 Herramientas disponibles:")
     print("- 🌳 Árbol")
