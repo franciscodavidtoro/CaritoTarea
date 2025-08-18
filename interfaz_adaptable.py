@@ -19,8 +19,8 @@ class InterfazAdaptable:
         cfg.aspect_ratio = ancho / alto
         
         # Recalcular tamaños de botones
-        # Ajustar el número de botones para incluir los nuevos botones 'Koch' y 'Sierpinski'
-        self.button_count = 9  # Total de botones ahora
+        # Ajustar el número de botones para incluir todos los botones
+        self.button_count = 11  # Total de botones actuales: arbol, casa, montana, luz, carro, manejar, select, textura, esponja, koch, sierpinski
         self.button_width = (ancho - (self.button_count + 1) * cfg.BUTTON_MARGIN) // self.button_count
         self.button_height = cfg.BUTTON_HEIGHT
         self.button_y = cfg.BUTTON_MARGIN

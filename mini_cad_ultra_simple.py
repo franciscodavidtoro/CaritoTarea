@@ -18,6 +18,9 @@ from objetos.arboles import crear_arbol
 from objetos.casas import crear_casa
 from objetos.cesped import inicializar_cesped
 from objetos.carro import carro
+from objetos.esponja_sierpinski import crear_esponja_sierpinski
+from objetos.koch import crear_koch
+from objetos.sierpinski import crear_sierpinski
 
 # Función para crear montaña (basada en gupoMontannas.py)
 def crear_montana(pos_x, pos_z):
@@ -165,11 +168,16 @@ class Boton:
                 self.y <= y <= self.y + self.alto)
     
     def dibujar(self):
+        # Obtener dimensiones actuales de la ventana
+        viewport = glGetIntegerv(GL_VIEWPORT)
+        window_width = viewport[2]
+        window_height = viewport[3]
+        
         # Cambiar a proyección 2D usando dimensiones actuales de la ventana
         glMatrixMode(GL_PROJECTION)
         glPushMatrix()
         glLoadIdentity()
-        glOrtho(0, cfg.WINDOW_WIDTH, cfg.WINDOW_HEIGHT, 0, -1, 1)  # Y invertida para coincidir con coordenadas de mouse
+        glOrtho(0, window_width, window_height, 0, -1, 1)  # Y invertida para coincidir con coordenadas de mouse
         
         glMatrixMode(GL_MODELVIEW)
         glPushMatrix()
@@ -246,7 +254,8 @@ def crear_botones(interfaz):
     return botones
 
 # Inicializar botones
-botones = crear_botones(interfaz)
+# botones = crear_botones(interfaz)  # Se moverá a main()
+botones = []  # Inicialización temporal
 
 class Objeto:
     def __init__(self, tipo, posicion, color, nombre):
@@ -288,7 +297,6 @@ class Objeto:
         else:
             # Para todos los otros objetos, dibujar sus figuras normalmente
             for figura in self.figuras:
-                figura.dibujar()
                 figura.dibujar()
         
         # Wireframe de selección (igual para todos los objetos)
@@ -571,15 +579,18 @@ def agregar_objeto(tipo, posicion):
         y = 0
 
     if tipo == "esponja":
-        nuevo_objeto = crear_esponja_sierpinski((x, y, z), color_actual.copy(), nombre)
+        nuevo_objeto = crear_esponja_sierpinski(x, z, color_actual.copy())
+        nuevo_objeto.nombre = nombre
     elif tipo == "koch":
         # Color dorado específico para Koch
         color_dorado = (0.8, 0.6, 0.2, 1.0)  # Dorado/amarillo
-        nuevo_objeto = crear_koch((x, y, z), color_dorado, nombre)
+        nuevo_objeto = crear_koch(x, z, color_dorado)
+        nuevo_objeto.nombre = nombre
     elif tipo == "sierpinski":
         # Color azul específico para Sierpinski
         color_azul = (0.2, 0.4, 0.8, 1.0)  # Azul bonito
-        nuevo_objeto = crear_sierpinski((x, y, z), color_azul, nombre)
+        nuevo_objeto = crear_sierpinski(x, z, color_azul)
+        nuevo_objeto.nombre = nombre
     else:
         nuevo_objeto = Objeto(
             tipo=tipo,
@@ -595,523 +606,6 @@ def agregar_objeto(tipo, posicion):
         carro_existente = nuevo_objeto
     
     print(f"Agregado: {nombre} en ({x:.1f}, {y:.1f}, {z:.1f})")
-
-# --- Esponja de Sierpinski ---
-def crear_esponja_sierpinski(posicion, color, nombre, iteraciones=3):
-    """Crea una Esponja de Sierpinski (Sierpinski Sponge) en 3D"""
-    class EsponjaSierpinski:
-        def __init__(self, posicion, color, nombre, iteraciones):
-            self.tipo = "esponja"
-            self.posicion = list(posicion)
-            self.color = color
-            self.nombre = nombre
-            self.seleccionado = False
-            self.figuras = []
-            self._crear_esponja_recursiva(self.posicion, 4.0, iteraciones)
-
-        def _crear_esponja_recursiva(self, centro, tamaño, nivel):
-            """Crea recursivamente la esponja de Sierpinski"""
-            if nivel == 0:
-                # Crear cubo sólido en el nivel base
-                cubo = fg.Figura(
-                    tipo='cubo',
-                    posicion=centro,
-                    escala=(tamaño, tamaño, tamaño),
-                    color=self.color
-                )
-                self.figuras.append(cubo)
-                return
-            
-            nuevo_tamaño = tamaño / 3.0
-            
-            # Para cada posición en la grilla 3x3x3, excepto las que deben estar vacías
-            for x in range(3):
-                for y in range(3):
-                    for z in range(3):
-                        # Contar cuántas coordenadas son iguales a 1 (centro)
-                        coords_centro = sum([x == 1, y == 1, z == 1])
-                        
-                        # Omitir posiciones que están en el centro de caras o el centro absoluto
-                        # La esponja de Sierpinski omite cubos donde 2 o más coordenadas son centrales
-                        if coords_centro >= 2:
-                            continue
-                            
-                        # Calcular nueva posición
-                        nueva_x = centro[0] + (x - 1) * nuevo_tamaño
-                        nueva_y = centro[1] + (y - 1) * nuevo_tamaño
-                        nueva_z = centro[2] + (z - 1) * nuevo_tamaño
-                        
-                        nueva_posicion = [nueva_x, nueva_y, nueva_z]
-                        
-                        # Recursión para crear sub-esponjas
-                        self._crear_esponja_recursiva(nueva_posicion, nuevo_tamaño, nivel - 1)
-
-        def dibujar(self):
-            # Configurar material específico para la esponja (menos reflectivo)
-            glEnable(GL_LIGHTING)
-            
-            # Material más opaco y menos reflectivo
-            material_ambient = [self.color[0] * 0.4, self.color[1] * 0.4, self.color[2] * 0.4, self.color[3]]
-            material_diffuse = [self.color[0] * 0.8, self.color[1] * 0.8, self.color[2] * 0.8, self.color[3]]
-            material_specular = [0.1, 0.1, 0.1, 1.0]  # Muy poco brillo especular
-            
-            glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, material_ambient)
-            glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, material_diffuse)
-            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, material_specular)
-            glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 8.0)  # Muy poco brillo
-            
-            # Dibujar todas las figuras de la esponja con gradiente
-            for i, figura in enumerate(self.figuras):
-                # Crear gradiente basado en la distancia al centro
-                distancia_al_centro = (
-                    (figura.posicion[0] - self.posicion[0])**2 +
-                    (figura.posicion[1] - self.posicion[1])**2 +
-                    (figura.posicion[2] - self.posicion[2])**2
-                )**0.5
-                
-                # Normalizar la distancia para crear el gradiente
-                factor_distancia = min(1.0, distancia_al_centro / 6.0)
-                
-                # Aplicar gradiente púrpura/magenta más intenso y menos lavado
-                color_modificado = (
-                    min(0.9, self.color[0] * 0.7 + factor_distancia * 0.3),  # Más rojo controlado
-                    max(0.1, self.color[1] * 0.6 - factor_distancia * 0.2),  # Menos verde
-                    min(0.9, self.color[2] * 0.8 + factor_distancia * 0.2),  # Más azul controlado
-                    self.color[3]
-                )
-                
-                # Configurar material para cada cubo individualmente
-                cubo_ambient = [color_modificado[0] * 0.4, color_modificado[1] * 0.4, color_modificado[2] * 0.4, color_modificado[3]]
-                cubo_diffuse = [color_modificado[0] * 0.8, color_modificado[1] * 0.8, color_modificado[2] * 0.8, color_modificado[3]]
-                
-                glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, cubo_ambient)
-                glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, cubo_diffuse)
-                
-                # Aplicar el color modificado temporalmente
-                color_original = figura.color
-                figura.color = color_modificado
-                figura.dibujar()
-                figura.color = color_original
-            
-            # Dibujar indicador de selección si está seleccionado
-            if self.seleccionado:
-                glPushAttrib(GL_CURRENT_BIT | GL_LIGHTING_BIT | GL_LINE_BIT)
-                glPushMatrix()
-                glTranslatef(*self.posicion)
-                glDisable(GL_LIGHTING)
-                glColor4f(1, 1, 0, 1)
-                glLineWidth(4)
-                glutWireCube(8.0)
-                glPopMatrix()
-                glPopAttrib()
-
-    return EsponjaSierpinski(posicion, color, nombre, iteraciones)
-
-# --- Fractal de Koch 3D ---
-def crear_koch(posicion, color, nombre, iteraciones=4):
-    """Crea una curva de Koch en 3D más realista"""
-    class FractalKoch:
-        def __init__(self, posicion, color, nombre, iteraciones):
-            self.tipo = "koch"
-            self.posicion = list(posicion)
-            self.color = color
-            self.nombre = nombre
-            self.seleccionado = False
-            self.figuras = []
-            self.segmentos = []  # Lista para almacenar segmentos de línea
-            self._crear_koch_3d(iteraciones)
-
-        def _crear_koch_3d(self, iteraciones):
-            """Crea una estructura 3D basada en la curva de Koch"""
-            import math
-            
-            # Crear un hexágono base (Copo de nieve de Koch)
-            radio = 3.0
-            vertices_hex = []
-            
-            for i in range(6):
-                angulo = i * math.pi / 3  # 60 grados entre cada vértice
-                x = self.posicion[0] + radio * math.cos(angulo)
-                z = self.posicion[2] + radio * math.sin(angulo)
-                y = self.posicion[1]
-                vertices_hex.append((x, y, z))
-            
-            # Crear los 6 lados del hexágono aplicando Koch
-            for i in range(6):
-                p1 = vertices_hex[i]
-                p2 = vertices_hex[(i + 1) % 6]
-                puntos_koch = self._generar_curva_koch_2d(p1, p2, iteraciones)
-                
-                # Crear la curva como una estructura 3D
-                self._crear_estructura_3d_desde_puntos(puntos_koch, radio / (2 ** iteraciones))
-
-        def _generar_curva_koch_2d(self, p1, p2, iteraciones):
-            """Genera puntos de la curva de Koch entre dos puntos en 2D"""
-            import math
-            
-            if iteraciones == 0:
-                return [p1, p2]
-            
-            # Vector del segmento
-            dx = p2[0] - p1[0]
-            dy = p2[1] - p1[1]
-            dz = p2[2] - p1[2]
-            
-            # Puntos que dividen el segmento en tercios
-            p_a = (p1[0] + dx/3, p1[1] + dy/3, p1[2] + dz/3)
-            p_b = (p1[0] + 2*dx/3, p1[1] + 2*dy/3, p1[2] + 2*dz/3)
-            
-            # Calcular el punto del pico del triángulo equilátero
-            # Vector perpendicular en el plano XZ (elevándolo ligeramente)
-            longitud_segmento = math.sqrt(dx*dx + dz*dz)
-            altura_triangulo = longitud_segmento * math.sqrt(3) / 6
-            
-            # Vector perpendicular normalizado
-            if longitud_segmento > 0:
-                perp_x = -dz / longitud_segmento * altura_triangulo
-                perp_z = dx / longitud_segmento * altura_triangulo
-            else:
-                perp_x = perp_z = 0
-            
-            # Punto del pico (ligeramente elevado para efecto 3D)
-            p_pico = (
-                (p_a[0] + p_b[0])/2 + perp_x,
-                p1[1] + altura_triangulo * 0.3,  # Elevar ligeramente
-                (p_a[2] + p_b[2])/2 + perp_z
-            )
-            
-            # Recursión para cada segmento
-            resultado = []
-            resultado.extend(self._generar_curva_koch_2d(p1, p_a, iteraciones-1)[:-1])  # Sin el último punto para evitar duplicados
-            resultado.extend(self._generar_curva_koch_2d(p_a, p_pico, iteraciones-1)[:-1])
-            resultado.extend(self._generar_curva_koch_2d(p_pico, p_b, iteraciones-1)[:-1])
-            resultado.extend(self._generar_curva_koch_2d(p_b, p2, iteraciones-1))
-            
-            return resultado
-
-        def _crear_estructura_3d_desde_puntos(self, puntos, grosor_base):
-            """Crea estructura 3D a partir de una lista de puntos"""
-            import math
-            
-            for i in range(len(puntos) - 1):
-                p1 = puntos[i]
-                p2 = puntos[i + 1]
-                
-                # Calcular punto medio
-                punto_medio = (
-                    (p1[0] + p2[0]) / 2,
-                    (p1[1] + p2[1]) / 2,
-                    (p1[2] + p2[2]) / 2
-                )
-                
-                # Calcular longitud del segmento
-                dx = p2[0] - p1[0]
-                dy = p2[1] - p1[1]
-                dz = p2[2] - p1[2]
-                longitud = math.sqrt(dx*dx + dy*dy + dz*dz)
-                
-                # Calcular ángulos de rotación
-                if longitud > 0:
-                    # Ángulo en el plano XZ
-                    angulo_y = math.atan2(dx, dz) * 180 / math.pi
-                    # Ángulo de elevación
-                    angulo_x = -math.atan2(dy, math.sqrt(dx*dx + dz*dz)) * 180 / math.pi
-                else:
-                    angulo_y = angulo_x = 0
-                
-                # Crear segmento como cubo alargado
-                grosor = max(grosor_base * 0.8, 0.05)
-                segmento = fg.Figura(
-                    tipo='cubo',
-                    posicion=punto_medio,
-                    rotacion=(angulo_x, angulo_y, 0),
-                    escala=(grosor, grosor, longitud),
-                    color=self.color
-                )
-                self.figuras.append(segmento)
-                
-                # Añadir esferas en los puntos de conexión para suavizar
-                if i == 0:  # Primera esfera
-                    esfera1 = fg.Figura(
-                        tipo='esfera',
-                        posicion=p1,
-                        escala=(grosor * 1.2, grosor * 1.2, grosor * 1.2),
-                        color=self.color,
-                        argumentos=grosor * 0.6
-                    )
-                    self.figuras.append(esfera1)
-                
-                # Esfera en el segundo punto
-                esfera2 = fg.Figura(
-                    tipo='esfera',
-                    posicion=p2,
-                    escala=(grosor * 1.2, grosor * 1.2, grosor * 1.2),
-                    color=self.color,
-                    argumentos=grosor * 0.6
-                )
-                self.figuras.append(esfera2)
-
-        def dibujar(self):
-            # Configurar material para el fractal de Koch
-            glEnable(GL_LIGHTING)
-            glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, self.color)
-            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [0.5, 0.5, 0.5, 1.0])
-            glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 64.0)
-            
-            # Dibujar todas las figuras del fractal
-            for i, figura in enumerate(self.figuras):
-                # Aplicar gradiente de color basado en la posición
-                factor_altura = (figura.posicion[1] - self.posicion[1] + 2) / 4
-                factor_altura = max(0, min(1, factor_altura))
-                
-                # Crear gradiente dorado/amarillo para Koch
-                color_modificado = (
-                    min(1.0, self.color[0] + factor_altura * 0.4),  # Más rojizo en las alturas
-                    min(1.0, self.color[1] + factor_altura * 0.3),  # Más verdoso
-                    self.color[2] + factor_altura * 0.1,  # Poco azul
-                    self.color[3]
-                )
-                
-                # Asegurar que los valores estén entre 0 y 1
-                color_modificado = tuple(max(0, min(1, c)) for c in color_modificado)
-                
-                # Aplicar el color modificado temporalmente
-                color_original = figura.color
-                figura.color = color_modificado
-                figura.dibujar()
-                figura.color = color_original
-            
-            # Dibujar indicador de selección si está seleccionado
-            if self.seleccionado:
-                glPushAttrib(GL_CURRENT_BIT | GL_LIGHTING_BIT | GL_LINE_BIT)
-                glPushMatrix()
-                glTranslatef(*self.posicion)
-                glDisable(GL_LIGHTING)
-                glColor4f(1, 1, 0, 1)
-                glLineWidth(4)
-                glutWireCube(8.0)
-                glPopMatrix()
-                glPopAttrib()
-
-    return FractalKoch(posicion, color, nombre, iteraciones)
-
-# --- Triángulo de Sierpinski 3D ---
-def crear_sierpinski(posicion, color, nombre, iteraciones=4):
-    """Crea un tetraedro de Sierpinski en 3D con triángulos reales"""
-    class FractalSierpinski:
-        def __init__(self, posicion, color, nombre, iteraciones):
-            self.tipo = "sierpinski"
-            self.posicion = list(posicion)
-            self.color = color
-            self.nombre = nombre
-            self.seleccionado = False
-            self.figuras = []
-            self.triangulos = []  # Lista para almacenar triángulos directamente
-            self._crear_sierpinski_3d(iteraciones)
-
-        def _crear_sierpinski_3d(self, iteraciones):
-            """Crea un tetraedro de Sierpinski en 3D con triángulos reales"""
-            import math
-            
-            # Tamaño inicial del tetraedro
-            tamaño = 4.0
-            altura = tamaño * math.sqrt(2/3)  # Altura de tetraedro regular
-            
-            # Vértices de un tetraedro regular
-            vertices = [
-                # Vértice superior (punta de la pirámide)
-                (self.posicion[0], self.posicion[1] + altura, self.posicion[2]),
-                
-                # Base triangular (triángulo equilátero)
-                (self.posicion[0] - tamaño/2, self.posicion[1] - altura/3, self.posicion[2] + tamaño/(2*math.sqrt(3))),
-                (self.posicion[0] + tamaño/2, self.posicion[1] - altura/3, self.posicion[2] + tamaño/(2*math.sqrt(3))),
-                (self.posicion[0], self.posicion[1] - altura/3, self.posicion[2] - tamaño/math.sqrt(3))
-            ]
-            
-            # Generar el fractal recursivamente
-            self._generar_tetraedro_recursivo(vertices, iteraciones, tamaño)
-
-        def _generar_tetraedro_recursivo(self, vertices, nivel, tamaño):
-            """Genera recursivamente el tetraedro de Sierpinski"""
-            if nivel == 0:
-                # Crear tetraedro sólido con sus 4 caras triangulares
-                self._crear_tetraedro_solido(vertices, tamaño)
-                return
-            
-            nuevo_tamaño = tamaño / 2
-            
-            # Crear 4 tetraedros más pequeños, uno en cada vértice del tetraedro original
-            for i in range(4):
-                # Para cada vértice, crear un tetraedro más pequeño
-                nuevos_vertices = [vertices[i]]  # El vértice principal
-                
-                # Calcular los otros 3 vértices como puntos medios de las aristas
-                for j in range(4):
-                    if i != j:
-                        punto_medio = (
-                            (vertices[i][0] + vertices[j][0]) / 2,
-                            (vertices[i][1] + vertices[j][1]) / 2,
-                            (vertices[i][2] + vertices[j][2]) / 2
-                        )
-                        nuevos_vertices.append(punto_medio)
-                
-                # Recursión para crear el tetraedro más pequeño
-                self._generar_tetraedro_recursivo(nuevos_vertices, nivel - 1, nuevo_tamaño)
-
-        def _crear_tetraedro_solido(self, vertices, tamaño):
-            """Crea un tetraedro sólido dibujando sus 4 caras triangulares"""
-            # Las 4 caras del tetraedro (cada cara es un triángulo)
-            caras = [
-                [1, 2, 3],  # Base (triángulo inferior)
-                [0, 1, 2],  # Cara lateral 1
-                [0, 2, 3],  # Cara lateral 2
-                [0, 3, 1]   # Cara lateral 3
-            ]
-            
-            # Crear cada cara triangular del tetraedro
-            for i, cara in enumerate(caras):
-                vertices_cara = [vertices[cara[0]], vertices[cara[1]], vertices[cara[2]]]
-                
-                # Color ligeramente diferente para cada cara para mejor visualización
-                factor_color = 1.0 - (i * 0.1)  # Variar ligeramente el color por cara
-                color_cara = (
-                    self.color[0] * factor_color,
-                    self.color[1] * factor_color,
-                    self.color[2] * factor_color,
-                    self.color[3]
-                )
-                
-                self.triangulos.append({
-                    'vertices': vertices_cara,
-                    'color': color_cara,
-                    'tamaño': tamaño,
-                    'es_base': (i == 0)  # Marcar si es la base para orientar normales
-                })
-
-        def _dibujar_triangulo_3d(self, vertices, color, grosor=0.05, es_base=False):
-            """Dibuja un triángulo 3D con grosor real"""
-            
-            # Calcular normal del triángulo
-            v1 = vertices[0]
-            v2 = vertices[1]
-            v3 = vertices[2]
-            
-            # Vectores del triángulo
-            u = (v2[0] - v1[0], v2[1] - v1[1], v2[2] - v1[2])
-            v = (v3[0] - v1[0], v3[1] - v1[1], v3[2] - v1[2])
-            
-            # Producto cruz para obtener la normal
-            nx = u[1] * v[2] - u[2] * v[1]
-            ny = u[2] * v[0] - u[0] * v[2]
-            nz = u[0] * v[1] - u[1] * v[0]
-            
-            # Normalizar
-            length = (nx*nx + ny*ny + nz*nz)**0.5
-            if length > 0:
-                nx /= length
-                ny /= length
-                nz /= length
-            
-            # Si es la base, invertir normal para que apunte hacia abajo
-            if es_base:
-                nx, ny, nz = -nx, -ny, -nz
-            
-            # Dibujar cara frontal del triángulo
-            glBegin(GL_TRIANGLES)
-            glColor4f(*color)
-            glNormal3f(nx, ny, nz)
-            for vertex in vertices:
-                glVertex3f(vertex[0] + nx*grosor/2, vertex[1] + ny*grosor/2, vertex[2] + nz*grosor/2)
-            glEnd()
-            
-            # Dibujar cara trasera del triángulo (más oscura)
-            color_trasera = (color[0]*0.7, color[1]*0.7, color[2]*0.7, color[3])
-            glBegin(GL_TRIANGLES)
-            glColor4f(*color_trasera)
-            glNormal3f(-nx, -ny, -nz)
-            # Invertir orden para que la normal apunte correctamente
-            for i in reversed(range(3)):
-                vertex = vertices[i]
-                glVertex3f(vertex[0] - nx*grosor/2, vertex[1] - ny*grosor/2, vertex[2] - nz*grosor/2)
-            glEnd()
-            
-            # Dibujar los lados del triángulo (bordes con grosor)
-            color_lateral = (color[0]*0.8, color[1]*0.8, color[2]*0.8, color[3])
-            for i in range(3):
-                v_a = vertices[i]
-                v_b = vertices[(i + 1) % 3]
-                
-                # Crear un pequeño rectángulo para cada arista
-                glBegin(GL_QUADS)
-                glColor4f(*color_lateral)
-                
-                # Calcular normal lateral (perpendicular a la arista y a la normal del triángulo)
-                edge = (v_b[0] - v_a[0], v_b[1] - v_a[1], v_b[2] - v_a[2])
-                lateral_nx = ny * edge[2] - nz * edge[1]
-                lateral_ny = nz * edge[0] - nx * edge[2]
-                lateral_nz = nx * edge[1] - ny * edge[0]
-                
-                # Normalizar
-                lat_length = (lateral_nx*lateral_nx + lateral_ny*lateral_ny + lateral_nz*lateral_nz)**0.5
-                if lat_length > 0:
-                    lateral_nx /= lat_length
-                    lateral_ny /= lat_length
-                    lateral_nz /= lat_length
-                
-                glNormal3f(lateral_nx, lateral_ny, lateral_nz)
-                
-                # Vértices del rectángulo lateral
-                glVertex3f(v_a[0] - nx*grosor/2, v_a[1] - ny*grosor/2, v_a[2] - nz*grosor/2)
-                glVertex3f(v_b[0] - nx*grosor/2, v_b[1] - ny*grosor/2, v_b[2] - nz*grosor/2)
-                glVertex3f(v_b[0] + nx*grosor/2, v_b[1] + ny*grosor/2, v_b[2] + nz*grosor/2)
-                glVertex3f(v_a[0] + nx*grosor/2, v_a[1] + ny*grosor/2, v_a[2] + nz*grosor/2)
-                glEnd()
-
-        def dibujar(self):
-            # Configurar material para los triángulos
-            glEnable(GL_LIGHTING)
-            glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, self.color)
-            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [0.4, 0.4, 0.4, 1.0])
-            glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 64.0)
-            
-            # Dibujar todos los triángulos del tetraedro
-            for triangulo in self.triangulos:
-                # Aplicar gradiente de color azul basado en el tamaño (nivel de recursión)
-                factor_gradiente = triangulo['tamaño'] / 4.0  # Normalizar basado en tamaño inicial
-                
-                # Crear gradiente de azules más bonito
-                color_modificado = (
-                    triangulo['color'][0] + factor_gradiente * 0.3,  # Más rojo para azules más claros
-                    triangulo['color'][1] + factor_gradiente * 0.4,  # Más verde para tonos cyan
-                    min(1.0, triangulo['color'][2] + factor_gradiente * 0.5),  # Más azul
-                    triangulo['color'][3]
-                )
-                
-                # Asegurar que los valores estén entre 0 y 1
-                color_modificado = tuple(max(0, min(1, c)) for c in color_modificado)
-                
-                # Dibujar el triángulo 3D con grosor proporcional a su tamaño
-                grosor = max(0.03, triangulo['tamaño'] / 30)
-                self._dibujar_triangulo_3d(
-                    triangulo['vertices'], 
-                    color_modificado, 
-                    grosor,
-                    triangulo['es_base']
-                )
-            
-            # Dibujar indicador de selección si está seleccionado
-            if self.seleccionado:
-                glPushAttrib(GL_CURRENT_BIT | GL_LIGHTING_BIT | GL_LINE_BIT)
-                glPushMatrix()
-                glTranslatef(*self.posicion)
-                glDisable(GL_LIGHTING)
-                glColor4f(1, 1, 0, 1)
-                glLineWidth(4)
-                glutWireCube(8.0)
-                glPopMatrix()
-                glPopAttrib()
-
-    return FractalSierpinski(posicion, color, nombre, iteraciones)
 
 def dibujar_info():
     """Dibuja información en pantalla"""
@@ -1287,8 +781,10 @@ def display():
     dibujar_vista_previa()
     
     # Dibujar botones usando la interfaz adaptable
-    for boton in botones:
+    for i, boton in enumerate(botones):
         boton.dibujar()
+        if i == 0:  # Solo imprimir debug para el primer botón para no llenar la consola
+            print(f"🔧 DEBUG: Dibujando botón {boton.texto} en ({boton.x}, {boton.y})", end="\r")
     
     # Dibujar información
     dibujar_info()
@@ -1321,7 +817,6 @@ def keyboard(key, x, y):
         else:
             objetos.clear()
             carro_existente = None
-            angulo_carro = 0.0
             teclas_presionadas.clear()
             print("Escena limpiada")
             glutPostRedisplay()
@@ -1537,7 +1032,7 @@ def seleccionar_objeto(objeto):
 
 def main():
     """Función principal"""
-    global planos_cesped
+    global planos_cesped, botones
     
     # Configurar OpenGL
     glEnable(GL_DEPTH_TEST)
@@ -1547,6 +1042,12 @@ def main():
     
     # Inicializar el césped después de configurar OpenGL
     planos_cesped = inicializar_cesped()
+    
+    # Inicializar botones después de configurar OpenGL
+    botones = crear_botones(interfaz)
+    print(f"🔧 DEBUG: Se crearon {len(botones)} botones")
+    for i, boton in enumerate(botones):
+        print(f"  Botón {i}: {boton.texto} en ({boton.x}, {boton.y}) tamaño ({boton.ancho}x{boton.alto})")
     
     # Configurar callbacks
     glutMouseFunc(mouse_click)
