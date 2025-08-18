@@ -288,12 +288,49 @@ class Objeto:
             self.rotacion = [0, 270, 0]  # Rotación inicial del carro
     
     def dibujar(self):
-        # Si es un carro, actualizar sus propiedades y dibujarlo
+        # Si es un carro, actualizar sus propiedades y dibujarlo con manejo especial de transparencias
         if self.tipo == "carro" and hasattr(self, 'carro_obj'):
             # Simplemente actualizar las propiedades del objeto carro
             self.carro_obj.posicion = list(self.posicion)
             self.carro_obj.rotacion = tuple(self.rotacion)  # Usar la rotación del objeto
-            self.carro_obj.dibujar()
+            
+            # Dibujar el carro con separación de figuras opacas y transparentes
+            glPushMatrix()
+            
+            # Aplicar transformaciones del objeto
+            glTranslatef(*self.carro_obj.posicion)
+            glRotatef(self.carro_obj.rotacion[0], 1, 0, 0)
+            glRotatef(self.carro_obj.rotacion[1], 0, 1, 0)
+            glRotatef(self.carro_obj.rotacion[2], 0, 0, 1)
+            glScalef(*self.carro_obj.escala)
+            
+            # Separar figuras opacas y transparentes
+            figuras_opacas = []
+            figuras_transparentes = []
+            
+            for figura in self.carro_obj.figuras:
+                if figura.color[3] < 1.0:  # Si tiene transparencia (alpha < 1.0)
+                    figuras_transparentes.append(figura)
+                else:
+                    figuras_opacas.append(figura)
+            
+            # Dibujar primero figuras opacas
+            for figura in figuras_opacas:
+                figura.dibujar()
+            
+            # Configurar transparencias y dibujar figuras transparentes
+            if figuras_transparentes:
+                glEnable(GL_BLEND)
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+                glDepthMask(GL_FALSE)  # Deshabilitar escritura en depth buffer
+                
+                for figura in figuras_transparentes:
+                    figura.dibujar()
+                
+                glDepthMask(GL_TRUE)   # Rehabilitar escritura en depth buffer
+                glDisable(GL_BLEND)
+            
+            glPopMatrix()
         else:
             # Para todos los otros objetos, dibujar sus figuras normalmente
             for figura in self.figuras:
@@ -770,7 +807,7 @@ def display():
     # Dibujar terreno
     dibujar_terreno()
     
-    # Dibujar todos los objetos
+    # Dibujar todos los objetos (el carro maneja sus propias transparencias internamente)
     for objeto in objetos:
         objeto.dibujar()
     
